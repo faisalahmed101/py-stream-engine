@@ -31,12 +31,15 @@ onno environment variable naam chaile --playlist-env flag use koro.
 """
 
 import argparse
+import fcntl
 import json
 import logging
 import os
+import select
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -49,8 +52,41 @@ M3U8_FETCH_RETRIES = 3
 CHUNK_SIZE = 64 * 1024              # 64KB kore stream kora hobe
 FFMPEG_LOGLEVEL = "warning"
 FFMPEG_RESTART_DELAY = 3            # ffmpeg crash korle koto sec por restart hobe
+STDIN_WRITE_TIMEOUT = 10            # ffmpeg stdin block thakle koto sec por "stuck" dhora hobe
 
 _shutdown_requested = False
+
+
+class StuckPipeError(Exception):
+    """ffmpeg stdin e write timeout hoyeche -- process stuck/stalled (e.g. HTTP
+    -listen mode e output side e kono client pull korche na)."""
+    pass
+
+
+def drain_stderr(proc: subprocess.Popen, stream_name: str) -> None:
+    """
+    ffmpeg er stderr pipe ke continuously read kore fela, background thread e.
+    Ei thread na thakle stderr pipe (~64KB) bhore gele ffmpeg stderr e write
+    korte block hoye jay, r shetar fole stdin read kora o bondho kore dey --
+    jeta silent freeze er ekta karon hote pare.
+
+    Recent line gulo proc._stderr_tail e rakha hoy, jate crash er por
+    "ffmpeg last error" log kora jay (pipe to ekhon thread e drain hocche,
+    tai proc.stderr.read() ar kaje debe na).
+    """
+    try:
+        for raw_line in iter(proc.stderr.readline, b""):
+            if not raw_line:
+                break
+            line = raw_line.decode("utf-8", errors="ignore").rstrip()
+            if line:
+                logging.debug("[%s] ffmpeg stderr: %s", stream_name, line)
+                tail = getattr(proc, "_stderr_tail", None)
+                if tail is not None:
+                    tail.append(line)
+                    del tail[:-20]  # last 20 line rakhle jothesto
+    except Exception:
+        pass
 
 
 def handle_signal(signum, frame):
@@ -172,11 +208,9 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     Persistent ffmpeg process banay, jetar stdin diye raw mpegts bytes
     feed kora hobe. -c copy dile transcode lagbe na, shudhu remux+push.
 
-    output_url:
-        - rtmp://...   -> SRS/normal RTMP server e push kore (production)
-        - http://...   -> ffmpeg nijei ekta HTTP server hisebe serve kore
-                          (SRS setup na thakle test korar jonno). Ei URL
-                          VLC/ffplay diye open korle stream check kora jay.
+    output_url: rtmp://...  -> SRS (ba onno RTMP media server) e sorasori
+    push kore. Ei URL e ffmpeg nijei ekta client hisebe connect kore
+    continuous data pathay -- kono "listen"/server mode nai.
     """
     cmd = [
         "ffmpeg",
@@ -186,20 +220,60 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
         "-i", "pipe:0",
         "-c", "copy",
         "-f", "flv",
+        output_url,
     ]
 
-    if output_url.startswith("http://") or output_url.startswith("https://"):
-        # ffmpeg http server hisebe act korbe, tai -listen 1 lagbe
-        cmd += ["-listen", "1"]
-
-    cmd.append(output_url)
-
-    return subprocess.Popen(
+    proc = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+
+    # stderr pipe buffer full hoye deadlock jeno na hoy, tai continuously drain
+    proc._stderr_tail = []
+    t = threading.Thread(target=drain_stderr, args=(proc, "ffmpeg"), daemon=True)
+    t.start()
+
+    return proc
+
+
+def write_stdin_with_timeout(proc: subprocess.Popen, data: bytes, timeout: float = STDIN_WRITE_TIMEOUT) -> None:
+    """
+    proc.stdin.write() shorashori call korle seta blocking -- ffmpeg jodi
+    output side e block hoye jay (jemon HTTP -listen mode e kono client
+    ar pull korche na, ba RTMP push mode e network/SRS stuck hoye geche),
+    tahole ffmpeg r stdin read korbe na, r ei write() call e Python
+    chirokal atke thakbe (silent freeze, kono exception/log chara).
+
+    Ei function ta fd ke temporarily non-blocking kore, select() diye
+    "writable" hoya wait kore ekta timeout shoho. Timeout hoye gele mane
+    ffmpeg stuck -- amra StuckPipeError raise kori, jate caller eta
+    BrokenPipeError er moto treat kore ffmpeg restart korte pare.
+    """
+    fd = proc.stdin.fileno()
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+    try:
+        view = memoryview(data)
+        while view:
+            _, writable, _ = select.select([], [fd], [], timeout)
+            if not writable:
+                raise StuckPipeError(
+                    f"ffmpeg stdin write {timeout}s er modhye complete hoyni -- process atke gyeche"
+                )
+            try:
+                n = os.write(fd, view)
+                view = view[n:]
+            except BlockingIOError:
+                continue
+            except BrokenPipeError:
+                raise
+    finally:
+        try:
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+        except Exception:
+            pass  # fd already closed (process died) -- kichu korar nai
 
 
 def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: str) -> bool:
@@ -216,9 +290,9 @@ def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: 
                     chunk = resp.read(CHUNK_SIZE)
                     if not chunk:
                         break
-                    proc.stdin.write(chunk)
+                    write_stdin_with_timeout(proc, chunk)
             return True
-        except BrokenPipeError:
+        except (BrokenPipeError, StuckPipeError):
             raise
         except Exception as e:
             logging.warning(
@@ -269,19 +343,29 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                         ok = stream_segment_to_ffmpeg(seg_url, proc, stream_name)
                         if not ok:
                             logging.warning("[%s] Segment permanently skip: %s", stream_name, seg_url)
-                    except BrokenPipeError:
+                    except (BrokenPipeError, StuckPipeError) as e:
+                        reason = "broken pipe" if isinstance(e, BrokenPipeError) else "stuck/stalled (write timeout)"
                         logging.error(
-                            "[%s] ffmpeg process mara geche (broken pipe), restart hocche...",
-                            stream_name,
+                            "[%s] ffmpeg process mara geche/atke geche (%s), restart hocche...",
+                            stream_name, reason,
                         )
                         try:
                             proc.stdin.close()
                         except Exception:
                             pass
-                        proc.wait(timeout=5)
-                        stderr_out = proc.stderr.read() if proc.stderr else b""
-                        if stderr_out:
-                            logging.warning("[%s] ffmpeg last error:\n%s", stream_name, stderr_out[-500:])
+                        try:
+                            proc.terminate()
+                        except Exception:
+                            pass
+                        try:
+                            proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                            proc.wait(timeout=5)
+
+                        tail = getattr(proc, "_stderr_tail", None)
+                        if tail:
+                            logging.warning("[%s] ffmpeg last error:\n%s", stream_name, "\n".join(tail))
 
                         time.sleep(FFMPEG_RESTART_DELAY)
                         proc = build_ffmpeg_process(rtmp_url)
