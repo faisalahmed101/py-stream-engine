@@ -1,0 +1,49 @@
+2026-07-25 23:43:00,213 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-25 23:43:00,214 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-25 23:43:00,231 [INFO] [stream_01] ffmpeg (pid=18644) start hoyeche, SRS e connect hocche...
+2026-07-25 23:43:01,233 [INFO] [stream_01] Push hocche: video_1 (86 segments) -- https://videos.restreamhub.live/proccessed-videos/9b60222d-042b-42e9-8813-216b2535ddbe/index.m3u8
+2026-07-25 23:44:59,602 [ERROR] [stream_01] ffmpeg process mara geche (broken pipe), restart hocche...
+2026-07-25 23:44:59,603 [WARNING] [stream_01] ffmpeg last error:
+b'egts @ 000002526a540b00] PES packet size mismatch\r\n[in#0/mpegts @ 000002526a540b00] Packet corrupt (stream = 1, dts = 5927004).\r\n[flv @ 000002526aa9ed40] Failed to update header with correct duration.\r\n[flv @ 000002526aa9ed40] Failed to update header with correct filesize.\r\n[out#0/flv @ 000002526a5a4140] Error writing trailer: Immediate exit requested\r\n[http @ 000002526a53ef00] URL read error: Immediate exit requested\r\n[out#0/flv @ 000002526a5a4140] Error closing file: Immediate exit requested\r\n'
+2026-07-25 23:45:02,623 [INFO] [stream_01] ffmpeg restart hoyeche (pid=10404)
+2026-07-25 23:45:02,625 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:45:02,629 [INFO] [stream_01] Bondho hocche, ffmpeg cleanup hocche...
+2026-07-25 23:45:02,635 [INFO] [stream_01] Worker shesh.
+2026-07-25 23:45:41,968 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-25 23:45:41,969 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-25 23:45:41,986 [INFO] [stream_01] ffmpeg (pid=19792) start hoyeche, SRS e connect hocche...
+2026-07-25 23:45:42,493 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:46:42,487 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:46:42,974 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:47:56,059 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:47:56,439 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:49:09,757 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:49:10,159 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:50:23,459 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:50:23,873 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:51:37,158 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:51:37,547 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:52:50,855 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:52:51,471 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:54:04,561 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:54:04,957 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:55:18,258 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:55:18,634 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:56:31,890 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:56:32,283 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:57:45,658 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:57:46,032 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-25 23:58:59,358 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-25 23:58:59,723 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:00:13,061 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:00:13,478 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:01:26,758 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:01:27,160 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:02:40,458 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:02:40,859 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:03:54,158 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:03:54,535 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:05:07,857 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:05:08,223 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 00:06:21,558 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 00:06:21,954 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
