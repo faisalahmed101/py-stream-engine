@@ -31,11 +31,10 @@ onno environment variable naam chaile --playlist-env flag use koro.
 """
 
 import argparse
-import fcntl
 import json
 import logging
 import os
-import select
+import queue
 import signal
 import subprocess
 import sys
@@ -238,6 +237,66 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     return proc
 
 
+def _get_writer_thread(proc: subprocess.Popen) -> "_StdinWriter":
+    """
+    Proti ffmpeg proc-er jonno ekta persistent background writer thread
+    lazily create kore proc object e cache kore rakhe (proc._writer).
+    """
+    writer = getattr(proc, "_writer", None)
+    if writer is None:
+        writer = _StdinWriter(proc)
+        proc._writer = writer
+    return writer
+
+
+class _StdinWriter:
+    """
+    Cross-platform (Windows shoho) stuck-pipe detection.
+
+    fcntl/select Unix-only (Windows-e fcntl module e exist kore na), tai
+    non-blocking fd trick er poriborte, ekta dedicated background thread
+    diye actual blocking proc.stdin.write() call kora hoy. Main thread
+    shudhu ei thread er result-er jonno ekta timeout shoho wait kore.
+
+    Jodi ffmpeg output side e stuck hoye jay (kono client pull korche na,
+    ba network/SRS stuck), tahole write() call background thread e
+    forever block hoye thakte pare -- kintu main thread timeout er por
+    egiye jay r StuckPipeError raise kore, caller shetake BrokenPipeError
+    er moto treat kore ffmpeg restart korte pare. (Background thread ta
+    leak hoy shei case e, kintu jehetu proc nijei kill/restart hocche,
+    shetate kono baastob somossha hoy na.)
+    """
+
+    def __init__(self, proc: subprocess.Popen):
+        self._proc = proc
+        self._in_q: "queue.Queue[bytes]" = queue.Queue()
+        self._out_q: "queue.Queue[object]" = queue.Queue()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        while True:
+            data = self._in_q.get()
+            try:
+                self._proc.stdin.write(data)
+                self._proc.stdin.flush()
+                self._out_q.put(None)  # success
+            except Exception as e:
+                self._out_q.put(e)
+                return  # thread ends -- proc.stdin already broken/closed
+
+    def write(self, data: bytes, timeout: float) -> None:
+        self._in_q.put(data)
+        try:
+            result = self._out_q.get(timeout=timeout)
+        except queue.Empty:
+            raise StuckPipeError(
+                f"ffmpeg stdin write {timeout}s er modhye complete hoyni -- process atke gyeche"
+            )
+        if isinstance(result, Exception):
+            raise result
+
+
 def write_stdin_with_timeout(proc: subprocess.Popen, data: bytes, timeout: float = STDIN_WRITE_TIMEOUT) -> None:
     """
     proc.stdin.write() shorashori call korle seta blocking -- ffmpeg jodi
@@ -246,34 +305,13 @@ def write_stdin_with_timeout(proc: subprocess.Popen, data: bytes, timeout: float
     tahole ffmpeg r stdin read korbe na, r ei write() call e Python
     chirokal atke thakbe (silent freeze, kono exception/log chara).
 
-    Ei function ta fd ke temporarily non-blocking kore, select() diye
-    "writable" hoya wait kore ekta timeout shoho. Timeout hoye gele mane
-    ffmpeg stuck -- amra StuckPipeError raise kori, jate caller eta
-    BrokenPipeError er moto treat kore ffmpeg restart korte pare.
+    Ei wrapper background writer thread diye actual write koriye, timeout
+    shoho result-er jonno wait kore (dekho _StdinWriter). Timeout hoye
+    gele StuckPipeError raise hoy, jate caller eta BrokenPipeError er moto
+    treat kore ffmpeg restart korte pare.
     """
-    fd = proc.stdin.fileno()
-    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-    try:
-        view = memoryview(data)
-        while view:
-            _, writable, _ = select.select([], [fd], [], timeout)
-            if not writable:
-                raise StuckPipeError(
-                    f"ffmpeg stdin write {timeout}s er modhye complete hoyni -- process atke gyeche"
-                )
-            try:
-                n = os.write(fd, view)
-                view = view[n:]
-            except BlockingIOError:
-                continue
-            except BrokenPipeError:
-                raise
-    finally:
-        try:
-            fcntl.fcntl(fd, fcntl.F_SETFL, flags)
-        except Exception:
-            pass  # fd already closed (process died) -- kichu korar nai
+    writer = _get_writer_thread(proc)
+    writer.write(data, timeout)
 
 
 def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: str) -> bool:

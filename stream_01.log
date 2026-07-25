@@ -47,3 +47,263 @@ b'egts @ 000002526a540b00] PES packet size mismatch\r\n[in#0/mpegts @ 000002526a
 2026-07-26 00:05:08,223 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
 2026-07-26 00:06:21,558 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
 2026-07-26 00:06:21,954 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:48:16,237 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-26 01:48:16,238 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-26 01:48:16,257 [INFO] [stream_01] ffmpeg (pid=20408) start hoyeche, SRS e connect hocche...
+2026-07-26 01:48:16,852 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:48:24,363 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:48:24,374 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001f846777a00] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001f8449d1c80] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:48:27,389 [INFO] [stream_01] ffmpeg restart hoyeche (pid=1844)
+2026-07-26 01:48:35,225 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:48:35,226 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 00000246234c2980] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000024623504200] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:48:38,236 [INFO] [stream_01] ffmpeg restart hoyeche (pid=21732)
+2026-07-26 01:48:45,850 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:48:45,851 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 0000016cf07af080] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000016cf0818c40] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:48:48,861 [INFO] [stream_01] ffmpeg restart hoyeche (pid=20364)
+2026-07-26 01:48:56,535 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:48:58,018 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 0000021167c63400] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000021164fd2800] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:01,033 [INFO] [stream_01] ffmpeg restart hoyeche (pid=10988)
+2026-07-26 01:49:08,593 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:49:08,594 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 0000012a299abd40] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000012a26b94180] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:11,604 [INFO] [stream_01] ffmpeg restart hoyeche (pid=21744)
+2026-07-26 01:49:19,075 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:49:19,078 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001cec9d05700] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001cec77f4e00] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:22,089 [INFO] [stream_01] ffmpeg restart hoyeche (pid=5712)
+2026-07-26 01:49:29,710 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:49:29,711 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001b365f0a140] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001b3642447c0] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:32,721 [INFO] [stream_01] ffmpeg restart hoyeche (pid=14364)
+2026-07-26 01:49:40,181 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:49:40,182 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 00000256b4abef00] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 00000256b1e52c00] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:43,191 [INFO] [stream_01] ffmpeg restart hoyeche (pid=21192)
+2026-07-26 01:49:50,623 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:49:50,623 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001400b75ee80] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000014009182d80] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:49:53,633 [INFO] [stream_01] ffmpeg restart hoyeche (pid=316)
+2026-07-26 01:50:00,952 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:00,952 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000002128e327200] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000002128b545f40] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:03,963 [INFO] [stream_01] ffmpeg restart hoyeche (pid=2528)
+2026-07-26 01:50:11,450 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:11,451 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001adb6ea5400] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001adb4a44440] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:14,463 [INFO] [stream_01] ffmpeg restart hoyeche (pid=18032)
+2026-07-26 01:50:21,962 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:21,963 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001f867b34300] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001f864bc3d40] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:24,973 [INFO] [stream_01] ffmpeg restart hoyeche (pid=8928)
+2026-07-26 01:50:26,047 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:50:26,421 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:50:33,184 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:33,185 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000016c53518180] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000016c53518180] DTS discontinuity in stream 0: packet 50 with DTS 6756000, packet 51 with DTS 8590060592
+[in#0/mpegts @ 0000016c53518180] DTS discontinuity in stream 1: packet 75 with DTS 6762923, packet 76 with DTS 8590064502
+[tcp @ 0000016c565bfe80] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000016c5350f100] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:36,195 [INFO] [stream_01] ffmpeg restart hoyeche (pid=2812)
+2026-07-26 01:50:43,634 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:43,635 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001924c5e2500] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 00000192497a3200] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:46,645 [INFO] [stream_01] ffmpeg restart hoyeche (pid=14996)
+2026-07-26 01:50:54,162 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:50:54,163 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000002023292c400] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000020230483c40] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:50:57,173 [INFO] [stream_01] ffmpeg restart hoyeche (pid=4464)
+2026-07-26 01:51:04,517 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:51:04,518 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 0000019387be1000] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 0000019384cd1940] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:51:07,527 [INFO] [stream_01] ffmpeg restart hoyeche (pid=18028)
+2026-07-26 01:51:15,037 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:51:15,038 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001e5257effc0] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001e5258553c0] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:51:18,048 [INFO] [stream_01] ffmpeg restart hoyeche (pid=17460)
+2026-07-26 01:51:25,548 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:51:25,548 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000002d1d03cbc00] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000002d1d0432e40] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:51:28,558 [INFO] [stream_01] ffmpeg restart hoyeche (pid=20192)
+2026-07-26 01:51:36,110 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:51:36,111 [WARNING] [stream_01] ffmpeg last error:
+[tcp @ 000001a660a36840] Connection to tcp://0.0.0.0:8080 failed: Error number -138 occurred
+[out#0/flv @ 000001a6607163c0] Error opening output http://0.0.0.0:8080/live.flv: Error number -138 occurred
+Error opening output file http://0.0.0.0:8080/live.flv.
+Error opening output files: Error number -138 occurred
+2026-07-26 01:51:39,121 [INFO] [stream_01] ffmpeg restart hoyeche (pid=5436)
+2026-07-26 01:51:40,715 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:51:40,715 [WARNING] [stream_01] ffmpeg last error:
+[out#0/flv @ 000002b963e64640] Error opening output http://0.0.0.0:8080/live.flv: Immediate exit requested
+Error opening output file http://0.0.0.0:8080/live.flv.
+2026-07-26 01:51:43,724 [INFO] [stream_01] ffmpeg restart hoyeche (pid=9400)
+2026-07-26 01:51:43,725 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:51:43,727 [INFO] [stream_01] Bondho hocche, ffmpeg cleanup hocche...
+2026-07-26 01:51:43,729 [INFO] [stream_01] Worker shesh.
+2026-07-26 01:56:28,962 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-26 01:56:28,963 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-26 01:56:28,977 [INFO] [stream_01] ffmpeg (pid=19444) start hoyeche, SRS e connect hocche...
+2026-07-26 01:56:29,493 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:56:58,019 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:56:58,369 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:57:29,278 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:57:29,639 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:57:58,478 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:57:58,842 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 01:58:10,036 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 01:58:10,037 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000023e2281be40] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000023e22872f00] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000023e2280e340] timestamp discontinuity (stream id=256): -73699999, new offset= 73699999
+[in#0/mpegts @ 0000023e2281be40] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000023e22872f00] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000023e2280e340] timestamp discontinuity (stream id=256): -73699999, new offset= 147399998
+[in#0/mpegts @ 0000023e2281be40] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000023e22872f00] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000023e2280e340] timestamp discontinuity (stream id=256): -73699999, new offset= 221099997
+[flv @ 0000023e255a56c0] Failed to update header with correct duration.
+[flv @ 0000023e255a56c0] Failed to update header with correct filesize.
+2026-07-26 01:58:13,054 [INFO] [stream_01] ffmpeg restart hoyeche (pid=6768)
+2026-07-26 01:58:13,055 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 01:58:13,057 [INFO] [stream_01] Bondho hocche, ffmpeg cleanup hocche...
+2026-07-26 01:58:13,062 [INFO] [stream_01] Worker shesh.
+2026-07-26 02:07:09,474 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-26 02:07:09,475 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-26 02:07:09,488 [INFO] [stream_01] ffmpeg (pid=15208) start hoyeche, SRS e connect hocche...
+2026-07-26 02:07:10,030 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:07:38,761 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:07:39,146 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:08:08,040 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:08:08,407 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:08:37,000 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:08:37,386 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:09:05,959 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:09:06,340 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:09:36,694 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:09:37,098 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:10:05,725 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:10:06,081 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:10:34,772 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:10:35,149 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:11:03,681 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:11:04,030 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:11:32,967 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:11:33,341 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:12:02,439 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:12:02,805 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:12:31,510 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:12:31,859 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:13:00,704 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:13:01,064 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:13:29,910 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:13:30,299 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:13:59,219 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:13:59,573 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:14:28,271 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:14:28,628 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:14:59,654 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:15:00,022 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:15:30,564 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:15:30,950 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:16:00,447 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:16:00,840 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:16:31,434 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:16:31,808 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:17:01,741 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:17:02,109 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:17:35,786 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:17:36,156 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:18:07,806 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:18:08,164 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:18:38,059 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:18:38,428 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:19:09,060 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:19:09,466 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:19:41,586 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:19:41,960 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:20:13,068 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:20:13,440 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:20:30,425 [WARNING] [stream_01] Segment fetch fail (https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/seg006.ts) attempt 1/3: [Errno 22] Invalid argument
+2026-07-26 02:20:43,027 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (stuck/stalled (write timeout)), restart hocche...
+2026-07-26 02:20:43,028 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1547699994
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1621399994
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1695099994
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1768799994
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1842499994
+[in#0/mpegts @ 000001e656b26740] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 000001e656b64f80] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000001e656b101c0] timestamp discontinuity (stream id=256): -73700000, new offset= 1916199994
+[flv @ 000001e6593c0d00] Failed to update header with correct duration.
+[flv @ 000001e6593c0d00] Failed to update header with correct filesize.
+2026-07-26 02:20:46,044 [INFO] [stream_01] ffmpeg restart hoyeche (pid=17852)
+2026-07-26 02:20:46,045 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:20:46,050 [INFO] [stream_01] Bondho hocche, ffmpeg cleanup hocche...
+2026-07-26 02:20:46,264 [INFO] [stream_01] Worker shesh.
