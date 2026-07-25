@@ -307,3 +307,216 @@ Error opening output file http://0.0.0.0:8080/live.flv.
 2026-07-26 02:20:46,045 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
 2026-07-26 02:20:46,050 [INFO] [stream_01] Bondho hocche, ffmpeg cleanup hocche...
 2026-07-26 02:20:46,264 [INFO] [stream_01] Worker shesh.
+2026-07-26 02:32:25,382 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-26 02:32:25,383 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 1 ta video ache.
+2026-07-26 02:32:25,397 [INFO] [stream_01] ffmpeg (pid=10768) start hoyeche, SRS e connect hocche...
+2026-07-26 02:32:25,915 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:32:54,733 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:32:55,085 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:33:27,204 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:33:27,552 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:33:59,199 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:33:59,606 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:35:14,131 [INFO] .env file theke variables load kora hoyeche: .env
+2026-07-26 02:35:14,132 [INFO] [stream_01] Playlist RAM e load hoyeche ('STREAM_PLAYLIST' theke), 2 ta video ache.
+2026-07-26 02:35:14,146 [INFO] [stream_01] ffmpeg (pid=16300) start hoyeche, SRS e connect hocche...
+2026-07-26 02:35:14,615 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:35:44,024 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:36:13,094 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:36:13,441 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:36:44,111 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:37:15,843 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:37:16,211 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:37:48,522 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:38:20,339 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:38:20,748 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:38:52,785 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:39:24,515 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:39:24,892 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:39:58,127 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:40:30,265 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:40:30,622 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:41:01,899 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:41:33,792 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:41:34,159 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:42:06,308 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:42:39,096 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:42:39,459 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:43:11,963 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:43:43,959 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:43:44,327 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:44:16,756 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:44:48,630 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:44:49,001 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:45:21,333 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:45:53,782 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:45:54,160 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:46:26,269 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:46:57,493 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:46:57,875 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:47:30,144 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:48:01,915 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:48:02,262 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:48:34,903 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:49:06,957 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:49:07,353 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:49:39,731 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:50:12,749 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:50:13,164 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:50:45,394 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:51:17,521 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:51:17,885 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:51:50,143 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:52:09,861 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 02:52:09,862 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000029daf8d3140] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029daf870b80] timestamp discontinuity (stream id=256): -73700000, new offset= 2063599994
+[in#0/mpegts @ 0000029daf882bc0] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000029daf8d3140] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029daf870b80] timestamp discontinuity (stream id=256): -73700000, new offset= 2137299994
+[in#0/mpegts @ 0000029daf882bc0] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000029daf8d3140] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029daf870b80] timestamp discontinuity (stream id=256): -73700000, new offset= 2210999994
+[in#0/mpegts @ 0000029daf882bc0] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000029daf8d3140] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029daf870b80] timestamp discontinuity (stream id=256): -73700000, new offset= 2284699994
+[aost#0:1/copy @ 0000029db1dde040] Error submitting a packet to the muxer: Cannot allocate memory
+    Last message repeated 1 times
+[out#0/flv @ 0000029daf8d4200] Error muxing a packet
+[out#0/flv @ 0000029daf8d4200] Task finished with error code: -12 (Cannot allocate memory)
+[out#0/flv @ 0000029daf8d4200] Terminating thread with return code -12 (Cannot allocate memory)
+[flv @ 0000029db2070d00] Failed to update header with correct duration.
+[flv @ 0000029db2070d00] Failed to update header with correct filesize.
+[out#0/flv @ 0000029daf8d4200] Error writing trailer: Cannot allocate memory
+[out#0/flv @ 0000029daf8d4200] Error closing file: Cannot allocate memory
+2026-07-26 02:52:12,879 [INFO] [stream_01] ffmpeg restart hoyeche (pid=16660)
+2026-07-26 02:52:19,521 [WARNING] [stream_01] Segment fetch fail (https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/seg010.ts) attempt 1/3: [Errno 22] Invalid argument
+2026-07-26 02:52:31,915 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (stuck/stalled (write timeout)), restart hocche...
+2026-07-26 02:52:31,915 [WARNING] [stream_01] ffmpeg last error:
+[h264 @ 000001dbba7a5900] get_buffer() failed
+[h264 @ 000001dbba7a5900] no frame!
+[in#0/mpegts @ 000001dbba802d40] Error during demuxing: Cannot allocate memory
+[flv @ 000001dbbab67d80] Failed to update header with correct duration.
+[flv @ 000001dbbab67d80] Failed to update header with correct filesize.
+2026-07-26 02:52:34,934 [INFO] [stream_01] ffmpeg restart hoyeche (pid=1772)
+2026-07-26 02:52:38,126 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:52:38,478 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:53:07,723 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:53:27,020 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 02:53:27,020 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000029f5ead4740] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029f5ea92dc0] timestamp discontinuity (stream id=256): 95370017690, new offset= -95370017690
+[in#0/mpegts @ 0000029f5ea862c0] Invalid timestamps stream=0, pts=669000, dts=8590594592, size=31481
+[in#0/mpegts @ 0000029f5ea862c0] Invalid timestamps stream=0, pts=666000, dts=8590597592, size=26864
+[vist#0:0/h264 @ 0000029f5ea92dc0] timestamp discontinuity (stream id=256): -95443717688, new offset= 73699998
+[in#0/mpegts @ 0000029f5ea862c0] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000029f5ead4740] corrupt input packet in stream 0
+[vist#0:0/h264 @ 0000029f5ea92dc0] timestamp discontinuity (stream id=256): 95370017690, new offset= -95296317692
+[in#0/mpegts @ 0000029f5ea862c0] Invalid timestamps stream=0, pts=669000, dts=8590594592, size=33530
+[in#0/mpegts @ 0000029f5ea862c0] Invalid timestamps stream=0, pts=666000, dts=8590597592, size=24815
+[vist#0:0/h264 @ 0000029f5ea92dc0] timestamp discontinuity (stream id=256): -95443717688, new offset= 147399996
+[aost#0:1/copy @ 0000029f5eb6ecc0] Error submitting a packet to the muxer: Cannot allocate memory
+    Last message repeated 1 times
+[out#0/flv @ 0000029f5eae5a80] Error muxing a packet
+[out#0/flv @ 0000029f5eae5a80] Task finished with error code: -12 (Cannot allocate memory)
+[out#0/flv @ 0000029f5eae5a80] Terminating thread with return code -12 (Cannot allocate memory)
+[flv @ 0000029f60abe340] Failed to update header with correct duration.
+[flv @ 0000029f60abe340] Failed to update header with correct filesize.
+[out#0/flv @ 0000029f5eae5a80] Error writing trailer: Cannot allocate memory
+[out#0/flv @ 0000029f5eae5a80] Error closing file: Cannot allocate memory
+2026-07-26 02:53:30,040 [INFO] [stream_01] ffmpeg restart hoyeche (pid=18212)
+2026-07-26 02:53:37,883 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:53:38,264 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:54:01,505 [WARNING] [stream_01] Segment fetch fail (https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/seg009.ts) attempt 1/3: [Errno 22] Invalid argument
+2026-07-26 02:54:13,906 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (stuck/stalled (write timeout)), restart hocche...
+2026-07-26 02:54:13,907 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000029518e80c80] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000029518ee2140] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000002951d38de00] timestamp discontinuity (stream id=256): -73699999, new offset= 73699999
+[in#0/mpegts @ 0000029518ee2140] Error during demuxing: Cannot allocate memory
+[flv @ 000002951b9af040] Failed to update header with correct duration.
+[flv @ 000002951b9af040] Failed to update header with correct filesize.
+2026-07-26 02:54:16,924 [INFO] [stream_01] ffmpeg restart hoyeche (pid=10904)
+2026-07-26 02:54:22,695 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:54:51,723 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:54:52,232 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:55:21,693 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:55:50,962 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:55:51,344 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:56:20,836 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:56:49,759 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:56:50,142 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:57:25,306 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:57:56,262 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:57:56,623 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:58:27,832 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 02:59:01,029 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 02:59:01,399 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 02:59:34,871 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 03:00:06,219 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 03:00:06,621 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 03:00:38,273 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 03:01:09,343 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 03:01:09,710 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 03:01:41,128 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 03:01:54,136 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 03:01:54,137 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 00000189ca0047c0] corrupt input packet in stream 0
+[vist#0:0/h264 @ 00000189cd578e40] timestamp discontinuity (stream id=256): -73700000, new offset= 884400000
+[in#0/mpegts @ 00000189c9fbb280] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 00000189ca0047c0] corrupt input packet in stream 0
+[vist#0:0/h264 @ 00000189cd578e40] timestamp discontinuity (stream id=256): -73700000, new offset= 958100000
+[in#0/mpegts @ 00000189c9fbb280] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 00000189ca0047c0] corrupt input packet in stream 0
+[vist#0:0/h264 @ 00000189cd578e40] timestamp discontinuity (stream id=256): -73700000, new offset= 1031800000
+[in#0/mpegts @ 00000189c9fbb280] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 00000189ca0047c0] corrupt input packet in stream 0
+[vist#0:0/h264 @ 00000189cd578e40] timestamp discontinuity (stream id=256): -73700000, new offset= 1105500000
+[aost#0:1/copy @ 00000189c9fc2ac0] Error submitting a packet to the muxer: Cannot allocate memory
+    Last message repeated 1 times
+[out#0/flv @ 00000189ca015d80] Error muxing a packet
+[out#0/flv @ 00000189ca015d80] Task finished with error code: -12 (Cannot allocate memory)
+[out#0/flv @ 00000189ca015d80] Terminating thread with return code -12 (Cannot allocate memory)
+[flv @ 00000189c9fc2380] Failed to update header with correct duration.
+[flv @ 00000189c9fc2380] Failed to update header with correct filesize.
+[out#0/flv @ 00000189ca015d80] Error writing trailer: Cannot allocate memory
+[out#0/flv @ 00000189ca015d80] Error closing file: Cannot allocate memory
+2026-07-26 03:01:57,150 [INFO] [stream_01] ffmpeg restart hoyeche (pid=15960)
+2026-07-26 03:02:13,299 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 03:02:13,682 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 03:02:43,495 [INFO] [stream_01] Push hocche: video_2 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8
+2026-07-26 03:03:12,598 [INFO] [stream_01] Puro playlist ek round shesh, abar shuru hocche (loop).
+2026-07-26 03:03:12,958 [INFO] [stream_01] Push hocche: video_1 (13 segments) -- https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8
+2026-07-26 03:03:14,731 [WARNING] [stream_01] Segment fetch fail (https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/seg000.ts) attempt 1/3: [Errno 22] Invalid argument
+2026-07-26 03:03:27,121 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (stuck/stalled (write timeout)), restart hocche...
+2026-07-26 03:03:27,121 [WARNING] [stream_01] ffmpeg last error:
+[in#0/mpegts @ 0000026529120580] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000026529168600] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000002652b81de40] timestamp discontinuity (stream id=256): -73700000, new offset= 73700000
+[in#0/mpegts @ 0000026529120580] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000026529168600] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000002652b81de40] timestamp discontinuity (stream id=256): -73700000, new offset= 147400000
+[in#0/mpegts @ 0000026529120580] Packet corrupt (stream = 0, dts = 6756000).
+[in#0/mpegts @ 0000026529168600] corrupt input packet in stream 0
+[vist#0:0/h264 @ 000002652b81de40] timestamp discontinuity (stream id=256): -73700000, new offset= 221100000
+[aost#0:1/copy @ 000002652aed5b80] Error submitting a packet to the muxer: Cannot allocate memory
+    Last message repeated 1 times
+[out#0/flv @ 000002652b9b5c00] Error muxing a packet
+[out#0/flv @ 000002652b9b5c00] Task finished with error code: -12 (Cannot allocate memory)
+[out#0/flv @ 000002652b9b5c00] Terminating thread with return code -12 (Cannot allocate memory)
+[flv @ 0000026529116e00] Failed to update header with correct duration.
+[flv @ 0000026529116e00] Failed to update header with correct filesize.
+[out#0/flv @ 000002652b9b5c00] Error writing trailer: Cannot allocate memory
+[out#0/flv @ 000002652b9b5c00] Error closing file: Cannot allocate memory
+2026-07-26 03:03:30,149 [INFO] [stream_01] ffmpeg restart hoyeche (pid=1244)
+2026-07-26 03:03:41,542 [ERROR] [stream_01] ffmpeg process mara geche/atke geche (broken pipe), restart hocche...
+2026-07-26 03:03:41,543 [WARNING] [stream_01] ffmpeg last error:
+[aost#0:1/copy @ 0000021ae8efc800] Error submitting a packet to the muxer: Error number -10054 occurred
+    Last message repeated 1 times
+[out#0/flv @ 0000021ae6a72a40] Error muxing a packet
+[out#0/flv @ 0000021ae6a72a40] Task finished with error code: -10054 (Error number -10054 occurred)
+[out#0/flv @ 0000021ae6a72a40] Terminating thread with return code -10054 (Error number -10054 occurred)
+[flv @ 0000021ae6a15440] Failed to update header with correct duration.
+[flv @ 0000021ae6a15440] Failed to update header with correct filesize.
+[out#0/flv @ 0000021ae6a72a40] Error writing trailer: Error number -10054 occurred
+[out#0/flv @ 0000021ae6a72a40] Error closing file: Error number -10054 occurred

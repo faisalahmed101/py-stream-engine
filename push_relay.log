@@ -198,3 +198,68 @@ Error opening output files: Invalid argument
 2026-07-26 02:14:13,882 [INFO] ffmpeg restart hoyeche (pid=9532)
 2026-07-26 02:14:13,885 [INFO] Bondho hocche, ffmpeg cleanup hocche...
 2026-07-26 02:14:13,889 [INFO] Relay shesh.
+2026-07-26 02:19:25,693 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:19:25,694 [INFO] Relay shuru hocche: source=rtmp://localhost:1935/live/stream_01 -> 1 destination(s): youtube
+2026-07-26 02:19:25,695 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:19:25,713 [INFO] ffmpeg (pid=11732) push shuru hoyeche.
+2026-07-26 02:25:01,895 [WARNING] ffmpeg exited (code=4294957243), last error:
+[in#0/flv @ 000001a5670c6b00] Error during demuxing: I/O error
+[flv @ 000001a565314840] Failed to update header with correct duration.
+[flv @ 000001a565314840] Failed to update header with correct filesize.
+[tee @ 000001a5671a7640] All tee outputs failed.
+[out#0/tee @ 000001a5670c97c0] Error writing trailer: Error number -10053 occurred
+2026-07-26 02:25:06,897 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:25:06,897 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:25:06,907 [INFO] ffmpeg restart hoyeche (pid=7444)
+2026-07-26 02:25:08,863 [INFO] Shutdown signal (2) peyechi, bondho hocche...
+2026-07-26 02:25:08,908 [INFO] Bondho hocche, ffmpeg cleanup hocche...
+2026-07-26 02:25:08,922 [INFO] Relay shesh.
+2026-07-26 02:29:52,120 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:29:52,121 [INFO] Relay shuru hocche: source=rtmp://localhost:1935/live/stream_01 -> 1 destination(s): youtube
+2026-07-26 02:29:52,121 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:29:52,137 [INFO] ffmpeg (pid=3868) push shuru hoyeche.
+2026-07-26 02:32:13,322 [INFO] Shutdown signal (2) peyechi, bondho hocche...
+2026-07-26 02:32:30,347 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:32:30,348 [INFO] Relay shuru hocche: source=rtmp://localhost:1935/live/stream_01 -> 1 destination(s): youtube
+2026-07-26 02:32:30,348 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:32:30,364 [INFO] ffmpeg (pid=9744) push shuru hoyeche.
+2026-07-26 02:34:05,191 [INFO] Shutdown signal (2) peyechi, bondho hocche...
+2026-07-26 02:35:19,071 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:35:19,072 [INFO] Relay shuru hocche: source=rtmp://localhost:1935/live/stream_01 -> 1 destination(s): youtube
+2026-07-26 02:35:19,072 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:35:19,086 [INFO] ffmpeg (pid=21028) push shuru hoyeche.
+2026-07-26 02:54:18,675 [WARNING] ffmpeg exited (code=0), last error:
+[in#0/flv @ 000002a39dcdc180] Packet mismatch 135488968 11 1104253848
+[in#0/flv @ 000002a39dcdc180] Packet mismatch -1857585601 2078 1104255926
+[in#0/flv @ 000002a39dd23900] Error during demuxing: Cannot allocate memory
+[flv @ 000002a39fa4e080] Failed to update header with correct duration.
+[flv @ 000002a39fa4e080] Failed to update header with correct filesize.
+2026-07-26 02:54:23,677 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 02:54:23,678 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 02:54:23,697 [INFO] ffmpeg restart hoyeche (pid=3248)
+2026-07-26 03:01:54,909 [WARNING] ffmpeg exited (code=0), last error:
+[in#0/flv @ 00000171381f4100] Error during demuxing: I/O error
+[flv @ 000001713aa2fbc0] Failed to update header with correct duration.
+[flv @ 000001713aa2fbc0] Failed to update header with correct filesize.
+2026-07-26 03:01:59,911 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 03:01:59,911 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 03:01:59,920 [INFO] ffmpeg restart hoyeche (pid=21368)
+2026-07-26 03:03:00,946 [WARNING] ffmpeg exited (code=0), last error:
+[in#0/flv @ 00000258bad53480] Error during demuxing: I/O error
+[flv @ 00000258bd3e4480] Failed to update header with correct duration.
+[flv @ 00000258bd3e4480] Failed to update header with correct filesize.
+2026-07-26 03:03:05,950 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 03:03:05,951 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 03:03:05,968 [INFO] ffmpeg restart hoyeche (pid=14696)
+2026-07-26 03:03:06,969 [WARNING] ffmpeg exited (code=4294967284), last error:
+[in#0 @ 0000015724d31f00] Error opening input: Cannot allocate memory
+Error opening input file rtmp://localhost:1935/live/stream_01.
+Error opening input files: Cannot allocate memory
+2026-07-26 03:03:11,971 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 03:03:11,972 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 03:03:11,989 [INFO] ffmpeg restart hoyeche (pid=13444)
+2026-07-26 03:03:33,005 [WARNING] ffmpeg exited (code=3221225773)
+2026-07-26 03:03:38,007 [INFO] .env file theke variables (re)load kora hoyeche: .env
+2026-07-26 03:03:38,008 [INFO] ffmpeg command: ffmpeg -y -loglevel warning -analyzeduration 10000000 -probesize 10000000 -rtmp_live live -i rtmp://localhost:1935/live/stream_01 -map 0 -c copy -f tee [f=flv]rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147
+2026-07-26 03:03:38,022 [INFO] ffmpeg restart hoyeche (pid=14400)
+2026-07-26 03:03:41,411 [INFO] Shutdown signal (2) peyechi, bondho hocche...
