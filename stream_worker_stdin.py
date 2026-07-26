@@ -28,6 +28,16 @@ Usage (CLI diye override, .env chara o):
 
 .env file er path change korte chaile --env-file flag, r playlist er jonno
 onno environment variable naam chaile --playlist-env flag use koro.
+
+Optional (stall watchdog -- detects a "silently frozen" ffmpeg, i.e. the
+process is still alive and accepting stdin writes, but has stopped actually
+pushing any bytes to SRS -- something the existing stuck-pipe write-timeout
+mostly, but not perfectly, covers):
+    STALL_TIMEOUT_SECONDS=60   # kotokkhon kono forward progress na dekha gele
+                               # "stalled" dhora hobe (default 60s -- deliberately
+                               # generous, jate network jitter/video-transition
+                               # e vul kore restart na hoy)
+    STALL_WATCHDOG_ENABLED=true  # false dile watchdog puropuri off thakbe
 """
 
 import argparse
@@ -64,6 +74,21 @@ FFMPEG_RESTART_BACKOFF_MAX = 30     # seconds -- delay never grows past this, so
 FFMPEG_STABLE_RUN_SECONDS = 20      # if ffmpeg ran at least this long, treat the next crash as fresh (reset backoff)
 STDIN_WRITE_TIMEOUT = 10            # seconds before a blocked ffmpeg stdin write is considered "stuck"
 
+# --- Stall watchdog ---
+# The stdin write-timeout above (StuckPipeError) already catches most
+# "ffmpeg stopped consuming stdin" cases, since output-side backpressure
+# (SRS/network stalled) typically fills ffmpeg's internal buffers and
+# blocks the next stdin write within seconds. This watchdog is a second,
+# independent layer for the narrower edge case where ffmpeg keeps
+# consuming stdin normally (no write-timeout) but has silently stopped
+# actually pushing bytes out over RTMP. It tracks ffmpeg's own `-progress`
+# output (real byte throughput) and only acts after a long, deliberately
+# generous window of *zero* forward progress -- so normal jitter or a
+# slow segment fetch never triggers a false restart of a healthy stream.
+STALL_CHECK_INTERVAL = 5    # seconds -- how often the watchdog re-checks progress
+STALL_TIMEOUT_SECONDS = float(os.environ.get("STALL_TIMEOUT_SECONDS", "60"))
+STALL_WATCHDOG_ENABLED = os.environ.get("STALL_WATCHDOG_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+
 _shutdown_requested = False
 
 
@@ -95,6 +120,38 @@ def drain_stderr(proc: subprocess.Popen, stream_name: str) -> None:
                 if tail is not None:
                     tail.append(line)
                     del tail[:-20]  # last 20 line rakhle jothesto
+    except Exception:
+        pass
+
+
+def read_progress(proc: subprocess.Popen) -> None:
+    """
+    Reads ffmpeg's `-progress pipe:1` output -- structured key=value lines
+    (frame=, total_size=, out_time_ms=, speed=, progress=continue/end),
+    completely separate from the human-readable warnings on stderr.
+
+    Whenever `total_size` (cumulative bytes pushed out over RTMP so far)
+    actually increases, proc._last_progress_at is refreshed. This is the
+    stall watchdog's real "is data still moving?" signal -- ffmpeg can be
+    alive and accepting stdin without erroring while still being stuck
+    downstream, but it cannot fake a growing output size while stuck.
+    """
+    try:
+        for raw_line in iter(proc.stdout.readline, b""):
+            if not raw_line:
+                break
+            line = raw_line.decode("utf-8", errors="ignore").strip()
+            if not line or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            if key == "total_size":
+                try:
+                    size = int(value)
+                except ValueError:
+                    continue
+                if size != getattr(proc, "_last_progress_bytes", -1):
+                    proc._last_progress_bytes = size
+                    proc._last_progress_at = time.time()
     except Exception:
         pass
 
@@ -249,6 +306,8 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
         "ffmpeg",
         "-y",
         "-loglevel", FFMPEG_LOGLEVEL,
+        "-nostats",
+        "-progress", "pipe:1",            # structured progress info on stdout, for the stall watchdog
         "-f", "mpegts",
         "-i", "pipe:0",
         "-c", "copy",
@@ -259,15 +318,19 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,   # -progress output (not video data -- video goes out over RTMP)
         stderr=subprocess.PIPE,
     )
 
     # stderr pipe buffer full hoye deadlock jeno na hoy, tai continuously drain
     proc._stderr_tail = []
     proc._started_at = time.time()  # used by run_stream() to decide backoff vs. reset
-    t = threading.Thread(target=drain_stderr, args=(proc, "ffmpeg"), daemon=True)
-    t.start()
+    proc._last_progress_bytes = -1
+    proc._last_progress_at = time.time()  # grace period starts at spawn, not at the first progress line
+    t_err = threading.Thread(target=drain_stderr, args=(proc, "ffmpeg"), daemon=True)
+    t_err.start()
+    t_prog = threading.Thread(target=read_progress, args=(proc,), daemon=True)
+    t_prog.start()
 
     return proc
 
@@ -486,6 +549,75 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
     logger.info("[%s] ffmpeg (pid=%s) started, connecting to SRS...", stream_name, proc.pid)
 
     consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
+    last_stall_check = time.time()
+
+    if STALL_WATCHDOG_ENABLED:
+        logger.info(
+            "[%s] Stall watchdog enabled: will force a restart if ffmpeg reports zero "
+            "forward progress for %.0fs straight (checked every %ds).",
+            stream_name, STALL_TIMEOUT_SECONDS, STALL_CHECK_INTERVAL,
+        )
+
+    def _terminate(p: subprocess.Popen) -> None:
+        try:
+            p.stdin.close()
+        except Exception:
+            pass
+        try:
+            p.terminate()
+            p.wait(timeout=5)
+        except Exception:
+            try:
+                p.kill()
+                p.wait(timeout=5)
+            except Exception:
+                pass
+        for stream in (getattr(p, "stdout", None), getattr(p, "stderr", None)):
+            try:
+                if stream:
+                    stream.close()
+            except Exception:
+                pass
+
+    def _handle_stall_if_needed() -> None:
+        """
+        Checked once per segment (roughly every few seconds in practice --
+        gated further by STALL_CHECK_INTERVAL). Only restarts ffmpeg if there
+        has been *zero* forward progress for STALL_TIMEOUT_SECONDS straight --
+        both deliberately generous so a healthy stream is never touched.
+        """
+        nonlocal proc, last_stall_check, consecutive_crashes
+        if not STALL_WATCHDOG_ENABLED:
+            return
+        if time.time() - last_stall_check < STALL_CHECK_INTERVAL:
+            return
+        last_stall_check = time.time()
+
+        stalled_for = time.time() - getattr(proc, "_last_progress_at", time.time())
+        if stalled_for < STALL_TIMEOUT_SECONDS:
+            return
+
+        logger.error(
+            "[%s] No forward progress from ffmpeg for %.0fs (last total_size=%s bytes) -- "
+            "treating this as a silent stall (process alive but stuck) and forcing a restart...",
+            stream_name, stalled_for, getattr(proc, "_last_progress_bytes", "?"),
+        )
+        _terminate(proc)
+
+        ran_for = time.time() - getattr(proc, "_started_at", 0)
+        if ran_for < FFMPEG_STABLE_RUN_SECONDS:
+            consecutive_crashes += 1
+        else:
+            consecutive_crashes = 0
+        delay = min(FFMPEG_RESTART_DELAY * (2 ** consecutive_crashes), FFMPEG_RESTART_BACKOFF_MAX)
+        logger.warning("[%s] Restarting ffmpeg in %.1fs after stall...", stream_name, delay)
+        time.sleep(delay)
+
+        new_proc = _build_ffmpeg_or_wait(rtmp_url, stream_name)
+        proc = new_proc  # None if shutdown was requested while waiting -- caller checks _shutdown_requested
+        if proc is not None:
+            last_stall_check = time.time()
+            logger.info("[%s] ffmpeg restarted after stall (pid=%s)", stream_name, proc.pid)
 
     try:
         while not _shutdown_requested:
@@ -512,6 +644,11 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                 for seg_url in segments:
                     if _shutdown_requested:
                         break
+
+                    _handle_stall_if_needed()
+                    if proc is None or _shutdown_requested:
+                        break
+
                     try:
                         ok = stream_segment_to_ffmpeg(seg_url, proc, stream_name)
                         if not ok:
@@ -522,21 +659,8 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                             "[%s] ffmpeg process died/stuck (%s), restarting...",
                             stream_name, reason,
                         )
-                        try:
-                            proc.stdin.close()
-                        except Exception:
-                            pass
-                        try:
-                            proc.terminate()
-                        except Exception:
-                            pass
-                        try:
-                            proc.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            proc.kill()
-                            proc.wait(timeout=5)
-
                         tail = getattr(proc, "_stderr_tail", None)
+                        _terminate(proc)
                         if tail:
                             logger.warning("[%s] ffmpeg last error:\n%s", stream_name, "\n".join(tail))
 
@@ -562,6 +686,7 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                         proc = _build_ffmpeg_or_wait(rtmp_url, stream_name)
                         if proc is None:
                             break  # shutdown requested while waiting for ffmpeg
+                        last_stall_check = time.time()
                         logger.info("[%s] ffmpeg restarted (pid=%s)", stream_name, proc.pid)
 
                 if proc is None:
@@ -575,15 +700,7 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
     finally:
         logger.info("[%s] Shutting down, cleaning up ffmpeg...", stream_name)
         if proc is not None:
-            try:
-                proc.stdin.close()
-            except Exception:
-                pass
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            _terminate(proc)
         logger.info("[%s] Worker stopped.", stream_name)
 
 
