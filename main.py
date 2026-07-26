@@ -197,12 +197,25 @@ class ManagedProcess:
         cmd = self.build_cmd()
         logger.info(f"[{self.name}] Starting: {' '.join(cmd)}")
         self.ready_event.clear()
-        self.proc = subprocess.Popen(
-            cmd,
-            cwd=self.cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        try:
+            self.proc = subprocess.Popen(
+                cmd,
+                cwd=self.cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except OSError as e:
+            # e.g. FileNotFoundError -- the command binary (like "node")
+            # isn't installed/on PATH, or `cwd` doesn't exist. Without this
+            # catch, this exception would propagate all the way out of
+            # main() and crash the whole launcher -- and nothing supervises
+            # main.py itself, so that would be a hard stop, not just a
+            # restart. Instead we log clearly and leave self.proc as None,
+            # so is_alive() reports False and the normal backoff/retry loop
+            # in main() handles it the same as any other startup failure.
+            logger.error(f"[{self.name}] Failed to start '{' '.join(cmd)}': {e}")
+            self.proc = None
+            return
         self._thread = threading.Thread(target=self._stream_output, daemon=True)
         self._thread.start()
 
@@ -331,7 +344,7 @@ def main():
         "WORKER",
         build_cmd=lambda: [sys.executable, "stream_worker_stdin.py", "--log-file", worker_log],
         cwd=str(here),
-        ready_pattern="Push hocche:",  # first segment publish shuru howar log line
+        ready_pattern="Pushing:",  # first segment publish shuru howar log line
         restart_backoff_base=restart_backoff_base,
         restart_backoff_max=restart_backoff_max,
     )
