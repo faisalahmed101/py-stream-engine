@@ -207,6 +207,42 @@ def build_ffmpeg_process(source_url: str, destinations: list[dict]) -> subproces
     return proc
 
 
+def _build_ffmpeg_or_wait(source_url: str, destinations: list[dict]) -> subprocess.Popen:
+    """
+    build_ffmpeg_process() wrapper that specifically catches a missing
+    ffmpeg binary (subprocess.Popen raises FileNotFoundError when the
+    "ffmpeg" executable isn't installed / not on PATH).
+
+    Without this, that FileNotFoundError is not caught anywhere else in
+    this file -- it would propagate out of run_relay() and crash the
+    entire Python process (not just "ffmpeg died"). main.py's supervisor
+    would then keep respawning a brand-new Python process over and over
+    with a full traceback each time -- a noisy, heavier "endless crash
+    loop" than simply waiting for ffmpeg to become available.
+
+    Instead, this waits/retries in place with a clear, low-noise log
+    message, at a fixed RESTART_BACKOFF_MAX interval (no point hammering
+    faster -- a missing binary won't fix itself in a second).
+
+    Returns None only if shutdown was requested while waiting/retrying.
+    """
+    while not _shutdown_requested:
+        try:
+            return build_ffmpeg_process(source_url, destinations)
+        except FileNotFoundError:
+            logger.error(
+                "ffmpeg binary not found (not installed, or not on PATH). "
+                "Install it (e.g. 'apt install ffmpeg' / 'brew install ffmpeg') -- "
+                "retrying in %.0fs...",
+                RESTART_BACKOFF_MAX,
+            )
+            waited = 0.0
+            while waited < RESTART_BACKOFF_MAX and not _shutdown_requested:
+                time.sleep(0.5)
+                waited += 0.5
+    return None
+
+
 def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
     global _reload_requested
 
@@ -222,7 +258,10 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
         source_url, len(destinations), ", ".join(d["name"] for d in destinations),
     )
 
-    proc = build_ffmpeg_process(source_url, destinations)
+    proc = _build_ffmpeg_or_wait(source_url, destinations)
+    if proc is None:
+        logger.info("Shutdown requested before ffmpeg could start.")
+        return
     logger.info("ffmpeg (pid=%s) push started.", proc.pid)
 
     consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
@@ -246,7 +285,11 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                         proc.wait(timeout=5)
                     except Exception:
                         proc.kill()
-                    proc = build_ffmpeg_process(source_url, destinations)
+                    new_proc = _build_ffmpeg_or_wait(source_url, destinations)
+                    if new_proc is None:
+                        logger.info("Shutdown requested while restarting ffmpeg for reload.")
+                        break
+                    proc = new_proc
                     consecutive_crashes = 0  # manual reload isn't a crash, reset backoff
                     logger.info(
                         "ffmpeg (pid=%s) restarted with %d destination(s): %s",
@@ -283,21 +326,24 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                 load_env_file(env_file)
                 set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
                 destinations = load_destinations(dest_env)
-                proc = build_ffmpeg_process(source_url, destinations)
+                proc = _build_ffmpeg_or_wait(source_url, destinations)
+                if proc is None:
+                    break  # shutdown requested while waiting for ffmpeg
                 logger.info("ffmpeg restarted (pid=%s)", proc.pid)
                 continue
 
             time.sleep(1)
     finally:
         logger.info("Shutting down, cleaning up ffmpeg...")
-        try:
-            proc.terminate()
-            proc.wait(timeout=10)
-        except Exception:
+        if proc is not None:
             try:
-                proc.kill()
+                proc.terminate()
+                proc.wait(timeout=10)
             except Exception:
-                pass
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
         logger.info("Relay stopped.")
 
 

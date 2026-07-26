@@ -1,0 +1,25 @@
+# Environment files
+env
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
+run_all.log
+stream_01.log
+push_relay.log
+
+# Node (node-media-server) -- node_modules is dropped in directly,
+# not installed via npm i, so it's still not something git should track
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store

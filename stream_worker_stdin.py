@@ -272,6 +272,43 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     return proc
 
 
+def _build_ffmpeg_or_wait(rtmp_url: str, stream_name: str) -> subprocess.Popen:
+    """
+    build_ffmpeg_process() wrapper that specifically catches a missing
+    ffmpeg binary (subprocess.Popen raises FileNotFoundError when the
+    "ffmpeg" executable isn't installed / not on PATH).
+
+    Without this, that FileNotFoundError is not caught anywhere else in
+    this file -- it would propagate all the way out of run_stream() and
+    crash the entire Python process (not just "ffmpeg died"). main.py's
+    supervisor would then keep respawning a brand-new Python process
+    over and over with a full traceback each time -- a noisy, heavier
+    "endless crash loop" than simply waiting for ffmpeg to become
+    available.
+
+    Instead, this waits/retries in place with a clear, low-noise log
+    message, at a fixed FFMPEG_RESTART_BACKOFF_MAX interval (no point
+    hammering faster -- a missing binary won't fix itself in a second).
+
+    Returns None only if shutdown was requested while waiting/retrying.
+    """
+    while not _shutdown_requested:
+        try:
+            return build_ffmpeg_process(rtmp_url)
+        except FileNotFoundError:
+            logger.error(
+                "[%s] ffmpeg binary not found (not installed, or not on PATH). "
+                "Install it (e.g. 'apt install ffmpeg' / 'brew install ffmpeg') -- "
+                "retrying in %.0fs...",
+                stream_name, FFMPEG_RESTART_BACKOFF_MAX,
+            )
+            waited = 0.0
+            while waited < FFMPEG_RESTART_BACKOFF_MAX and not _shutdown_requested:
+                time.sleep(0.5)
+                waited += 0.5
+    return None
+
+
 def _ensure_nonblocking(proc: subprocess.Popen) -> None:
     """
     POSIX only. Puts the ffmpeg stdin pipe into non-blocking mode once,
@@ -442,7 +479,10 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
         stream_name, playlist_env, len(playlist),
     )
 
-    proc = build_ffmpeg_process(rtmp_url)
+    proc = _build_ffmpeg_or_wait(rtmp_url, stream_name)
+    if proc is None:
+        logger.info("[%s] Shutdown requested before ffmpeg could start.", stream_name)
+        return
     logger.info("[%s] ffmpeg (pid=%s) started, connecting to SRS...", stream_name, proc.pid)
 
     consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
@@ -519,22 +559,31 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                             stream_name, delay, consecutive_crashes,
                         )
                         time.sleep(delay)
-                        proc = build_ffmpeg_process(rtmp_url)
+                        proc = _build_ffmpeg_or_wait(rtmp_url, stream_name)
+                        if proc is None:
+                            break  # shutdown requested while waiting for ffmpeg
                         logger.info("[%s] ffmpeg restarted (pid=%s)", stream_name, proc.pid)
+
+                if proc is None:
+                    break
+
+            if proc is None:
+                break
 
             logger.info("[%s] Finished one full playlist round, looping back to the start.", stream_name)
 
     finally:
         logger.info("[%s] Shutting down, cleaning up ffmpeg...", stream_name)
-        try:
-            proc.stdin.close()
-        except Exception:
-            pass
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if proc is not None:
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
         logger.info("[%s] Worker stopped.", stream_name)
 
 
