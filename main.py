@@ -51,6 +51,7 @@ Config (.env file theke, ba environment variable diye override):
 Ctrl+C (SIGINT) dile shob process (NMS + worker + push_relay) gracefully terminate hobe.
 """
 
+import json
 import os
 import signal
 import socket
@@ -58,6 +59,7 @@ import subprocess
 import sys
 import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -161,6 +163,84 @@ def _parse_host_port(rtmp_url: str, default_port: int = 1935) -> tuple[str, int]
     host = parsed.hostname or "localhost"
     port = parsed.port or default_port
     return host, port
+
+
+# ---------- Kubernetes health/readiness endpoints ----------
+# Ekta lightweight HTTP server (stdlib http.server -- kono extra pip/npm
+# dependency lagbe na, tai Docker image e kichu add korte hobe na) jate
+# k8s Pod-er liveness/readiness probe check korte pare. main.py e-i thake
+# (NMS/WORKER/RELAY er moto alada process na) karon eituku i "single
+# container" design e sob theke shohoj jayga -- ei ekta process i shob
+# child process ke track kore.
+#
+#   GET /healthz -> shudhu eituku bole je main.py (ei Python process) nijei
+#                   live ache (event loop hang/deadlock na hole always 200).
+#                   Eta livenessProbe e use koro:
+#
+#                       livenessProbe:
+#                         httpGet: {path: /healthz, port: 8081}
+#                         initialDelaySeconds: 15
+#                         periodSeconds: 10
+#
+#   GET /readyz  -> NMS + WORKER + RELAY -- tinta child process i live/
+#                   running kina check kore JSON e prottekta separate
+#                   status shoho. Kono ekta down thakle (restart/backoff
+#                   cholche) 503 dey. Eta readinessProbe e use koro:
+#
+#                       readinessProbe:
+#                         httpGet: {path: /readyz, port: 8081}
+#                         initialDelaySeconds: 15
+#                         periodSeconds: 5
+#                         failureThreshold: 3
+#
+# NOTE (important, Deployment manifest e mathay rekho):
+#   - Eta horizontally scale kora jaবে na -- ekta Pod = ekta stream
+#     pipeline (ekta ffmpeg push). Deployment e `replicas: 1` rakho,
+#     naile duita Pod same RTMP destination e duibar push korbe.
+#   - RESTART_BACKOFF_MAX (default 60s) porjonto delay lagte pare kono
+#     child process restart korte, r SIGTERM ashar por ffmpeg/node ke
+#     clean-e bondho hote (5-10s) shomoy lage. Tai Pod spec e
+#     `terminationGracePeriodSeconds: 30` (ba beshi) rakho, noile
+#     graceful shutdown shesh howar age SIGKILL chole ashte pare.
+#   - HEALTH_PORT env var diye port change kora jay (default 8081) --
+#     Deployment/Service e containerPort/probe port eর shathe match
+#     korte hobe.
+HEALTH_PORT = int(os.environ.get("HEALTH_PORT", "8081"))
+
+
+def _start_health_server(processes: dict) -> None:
+    class _HealthHandler(BaseHTTPRequestHandler):
+        def _write_json(self, code: int, payload: dict) -> None:
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            if self.path == "/healthz":
+                self._write_json(200, {"status": "ok"})
+                return
+            if self.path == "/readyz":
+                statuses = {name: p.is_alive() for name, p in processes.items()}
+                ready = all(statuses.values())
+                self._write_json(200 if ready else 503, {"ready": ready, "processes": statuses})
+                return
+            self._write_json(404, {"error": "not found"})
+
+        def log_message(self, format, *args):
+            # BaseHTTPRequestHandler default e proti request stderr e log
+            # kore -- k8s probe proti few second e ekbar hit korbe, tai eta
+            # off kora hocche jate log spam na hoy. Health server nijer
+            # kono error (bind fail, etc) eta suppress kore na, shudhu
+            # per-request access log.
+            pass
+
+    server = ThreadingHTTPServer(("0.0.0.0", HEALTH_PORT), _HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info(f"[run_all] Health check server listening on :{HEALTH_PORT} (/healthz, /readyz)")
 
 
 class ManagedProcess:
@@ -309,7 +389,15 @@ def main():
 
     load_env_file(str(here / ".env"))
 
-    setup_logging("run_all", log_file=os.environ.get("RUN_ALL_LOG", "run_all.log"))
+    # k8s e container filesystem shadharonoto ephemeral (Pod restart/
+    # reschedule hole log file harai jai), r console/stdout logging already
+    # ache (cluster-er log collector -- Fluent Bit/Loki/CloudWatch etc --
+    # shetai tule newar jonno designed). Tai file logging ekhon DEFAULT E
+    # OFF -- shudhu console/stdout e log hoy. File-e-o log rakhte chaile
+    # (e.g. local dev e) RUN_ALL_LOG / WORKER_LOG / PUSH_RELAY_LOG ke .env
+    # e explicitly ekta filename set koro (e.g. RUN_ALL_LOG=run_all.log).
+    run_all_log = os.environ.get("RUN_ALL_LOG", "")
+    setup_logging("run_all", log_file=run_all_log or None)
     set_stream_id("run_all", os.environ.get("STREAM_ID", "-"))
 
     nms_dir_rel = os.environ.get("NMS_DIR", ".")   # node-media-server.js jei subfolder e ache
@@ -327,8 +415,10 @@ def main():
     rtmp_url = os.environ.get("RTMP_URL", "rtmp://localhost:1935/live/stream_01")
     nms_host, nms_port = _parse_host_port(rtmp_url)
 
-    worker_log = os.environ.get("WORKER_LOG", "stream_01.log")
-    push_relay_log = os.environ.get("PUSH_RELAY_LOG", "push_relay.log")
+    # (default e empty -- file logging off, console/stdout-only. Filename
+    # set korle file-e-o log jabe -- upore run_all_log er comment dekho)
+    worker_log = os.environ.get("WORKER_LOG", "")
+    push_relay_log = os.environ.get("PUSH_RELAY_LOG", "")
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
@@ -342,7 +432,8 @@ def main():
     )
     worker = ManagedProcess(
         "WORKER",
-        build_cmd=lambda: [sys.executable, "stream_worker_stdin.py", "--log-file", worker_log],
+        build_cmd=lambda: [sys.executable, "stream_worker_stdin.py"]
+        + (["--log-file", worker_log] if worker_log else []),
         cwd=str(here),
         ready_pattern="Pushing:",  # first segment publish shuru howar log line
         restart_backoff_base=restart_backoff_base,
@@ -350,7 +441,8 @@ def main():
     )
     relay = ManagedProcess(
         "RELAY",
-        build_cmd=lambda: [sys.executable, "push_relay.py", "--log-file", push_relay_log],
+        build_cmd=lambda: [sys.executable, "push_relay.py"]
+        + (["--log-file", push_relay_log] if push_relay_log else []),
         cwd=str(here),
         restart_backoff_base=restart_backoff_base,
         restart_backoff_max=restart_backoff_max,
@@ -358,6 +450,12 @@ def main():
 
     order = ["NMS", "WORKER", "RELAY"]
     processes = {"NMS": nms, "WORKER": worker, "RELAY": relay}
+
+    # Health server ke shob-er age start kori (proti child process start
+    # howar age-i) -- tai k8s startupProbe/livenessProbe /healthz e 200
+    # pabe process start howar shathe shathei, r /readyz thakbe 503 jotokkhon
+    # na shob child process actually up hoy (accurate readiness signal).
+    _start_health_server(processes)
 
     def start_and_wait_nms() -> bool:
         nms.start()
