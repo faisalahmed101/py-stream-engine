@@ -32,16 +32,16 @@ WORKDIR /app
 COPY logging_setup.py supabase_client.py main.py stream_worker_stdin.py push_relay.py ./
 
 # --- Node-Media-Server ---
-# Per this repo's .gitignore, node_modules/ is dropped in directly (not
-# installed via `npm i`), so it must already exist in the build context
-# (i.e. next to this Dockerfile) before running `docker build`. It's
-# copied in as-is here.
-#
-# If your setup instead installs dependencies via npm, replace the line
-# below with:
-#   COPY node-media-server/package*.json ./node-media-server/
-#   RUN cd node-media-server && npm ci --omit=dev
-#   COPY node-media-server/ ./node-media-server/
+# Dependencies are installed fresh at build time (npm ci), not copied
+# from the host's node_modules/ -- keeps the build reproducible and
+# avoids host OS/arch mismatches (e.g. building on macOS, running on
+# Linux). package.json/package-lock.json are copied first (separately
+# from the rest of the source) so Docker's layer cache can skip
+# `npm ci` on rebuilds where only application code changed, not
+# dependencies. If you don't have a package-lock.json, replace
+# `npm ci` with `npm install` below.
+COPY node-media-server/package*.json ./node-media-server/
+RUN cd node-media-server && npm ci --omit=dev
 COPY node-media-server/ ./node-media-server/
 
 # --- Run as non-root ---

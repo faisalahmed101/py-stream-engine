@@ -1,6 +1,6 @@
-# Environment files
-env
+# Secrets -- never bake into the image
 .env
+env
 
 # Python
 __pycache__/
@@ -16,10 +16,13 @@ run_all.log
 stream_01.log
 push_relay.log
 
-# Node (node-media-server) -- node_modules is dropped in directly,
-# not installed via npm i, so it's still not something git should track
-node_modules/
-npm-debug.log*
-
-# OS
+# Git / editor
+.git/
+.gitignore
 .DS_Store
+
+# node-media-server: npm ci installs dependencies fresh INSIDE the
+# image at build time (see Dockerfile) -- the host's own node_modules/
+# (if it exists locally) must never be sent to Docker or used, since
+# it may be built for a different OS/arch than the container.
+node-media-server/node_modules/
