@@ -51,17 +51,30 @@ Real-time pacing (IMPORTANT):
     ffmpeg (-c copy, remux only) never paces its own output -- it pushes
     whatever bytes it receives on stdin over RTMP as fast as it can. This
     script therefore MUST pace segment delivery itself, based on each
-    segment's actual playback duration (from the m3u8 #EXTINF tags),
-    otherwise a fast network/CDN pushes an entire video in a few seconds
-    instead of its real runtime -- overwhelming downstream RTMP ingest
-    servers (e.g. YouTube) with a huge burst rate, which then drop the
-    connection ("Broken pipe" / ECONNRESET on the relay side). This was
-    masked during local development, where a slower home connection
-    happened to make segment-fetch time roughly match segment duration by
-    coincidence -- on a fast datacenter network (VPS + CDN), that
-    accidental throttling disappears and the missing pacing becomes
-    visible. See get_segment_urls() (parses #EXTINF durations) and the
-    pacing block inside run_stream()'s segment loop.
+    segment's actual playback duration (from the m3u8 #EXTINF tags).
+
+    Pacing is done at CHUNK granularity, not once-per-segment:
+        - An entire segment is first fetched fully into memory (as fast as
+          the network allows -- this part is NOT paced, since buffering
+          a few hundred KB/a couple MB in RAM is cheap and decouples
+          "how fast can we download this" from "how should this be fed
+          to ffmpeg").
+        - The buffered segment is then written to ffmpeg's stdin in
+          CHUNK_SIZE pieces, with a small sleep after each piece so the
+          total write time for the segment matches its real #EXTINF
+          duration, spread evenly across the whole segment.
+    A once-per-segment sleep (fetch fast -> write everything -> sleep for
+    the remainder of the segment's duration) was tried first and produces
+    a "burst, then silence, then burst" delivery pattern -- ffmpeg (and
+    downstream RTMP/YouTube) sees a rapid burst of data followed by several
+    seconds of nothing at all arriving, which some RTMP ingest servers
+    (e.g. YouTube) interpret as a brief connection drop, causing repeated
+    1-2s reconnects at the segment boundary interval. Spreading the same
+    total sleep time across many small chunks instead keeps bytes flowing
+    continuously and avoids that gap entirely, regardless of how fast the
+    network happens to be.
+    See _Pacer (drives the schedule) and stream_segment_to_ffmpeg() (does
+    the chunked writes) below.
 
 Optional (stall watchdog -- detects a "silently frozen" ffmpeg, i.e. the
 process is still alive and accepting stdin writes, but has stopped actually
@@ -112,7 +125,9 @@ if _IS_POSIX:
 SEGMENT_FETCH_RETRIES = 3
 SEGMENT_RETRY_BACKOFF_BASE = 2      # seconds
 M3U8_FETCH_RETRIES = 3
-CHUNK_SIZE = 64 * 1024              # stream in 64KB chunks
+CHUNK_SIZE = 64 * 1024              # pacing granularity -- segment bytes are written to
+                                     # ffmpeg's stdin in pieces this size, spaced out over
+                                     # the segment's real duration (see _Pacer below)
 FFMPEG_LOGLEVEL = "warning"
 FFMPEG_RESTART_DELAY = 3            # seconds -- base delay before the first retry after a crash
 FFMPEG_RESTART_BACKOFF_MAX = 30     # seconds -- delay never grows past this, so recovery stays fast
@@ -125,9 +140,9 @@ STDIN_WRITE_TIMEOUT = 10            # seconds before a blocked ffmpeg stdin writ
 # Only affects pacing accuracy for that one segment, never breaks segment
 # retrieval itself.
 DEFAULT_SEGMENT_DURATION_SECONDS = 6.0
-# Pacing sleep is done in small chunks so a shutdown signal is noticed
-# promptly instead of sleeping the full remaining duration first.
-PACING_SLEEP_STEP = 0.5
+# Pacing sleeps are done in small steps so a shutdown signal is noticed
+# promptly instead of sleeping the full remaining duration in one call.
+PACING_SLEEP_STEP = 0.2
 
 # --- Stall watchdog ---
 # The stdin write-timeout above (StuckPipeError) already catches most
@@ -151,6 +166,44 @@ class StuckPipeError(Exception):
     """ffmpeg stdin write timed out -- the process is stuck/stalled (e.g. HTTP
     -listen mode with no client pulling on the output side)."""
     pass
+
+
+class _Pacer:
+    """
+    Drives real-time delivery pacing for the whole stream (single instance,
+    created once per run_stream() call -- NOT recreated on ffmpeg
+    crash/stall restarts or playlist loop-arounds, so the schedule stays
+    anchored to when this worker actually started pushing video).
+
+    advance(seconds) is called after each chunk is successfully written to
+    ffmpeg's stdin, with that chunk's proportional slice of its segment's
+    real #EXTINF duration. It compares "how much playback time should have
+    elapsed by now" against wall-clock time, and sleeps the difference (in
+    small steps, so shutdown is noticed promptly) -- but only if delivery
+    is running AHEAD of real-time. If a crash/stall/slow-fetch introduces a
+    real gap, advance() naturally does not sleep at all until the backlog
+    catches back up on its own -- this is intentional: -c copy has no way
+    to push faster than 1x anyway, so there's no "catching up" to attempt.
+    """
+
+    def __init__(self, shutdown_check):
+        self._shutdown_check = shutdown_check
+        self._start = time.time()
+        self._scheduled_elapsed = 0.0
+
+    def advance(self, seconds: float) -> None:
+        if seconds <= 0:
+            return
+        self._scheduled_elapsed += seconds
+        target_time = self._start + self._scheduled_elapsed
+        remaining = target_time - time.time()
+        if remaining <= 0:
+            return
+        waited = 0.0
+        while waited < remaining and not self._shutdown_check():
+            step = min(PACING_SLEEP_STEP, remaining - waited)
+            time.sleep(step)
+            waited += step
 
 
 def drain_stderr(proc: subprocess.Popen, stream_id: str) -> None:
@@ -470,9 +523,9 @@ def get_segment_urls(m3u8_url: str) -> list[dict]:
     {"url": <segment .ts URL>, "duration": <seconds, float>} dicts.
 
     `duration` is parsed from each segment's preceding "#EXTINF:<seconds>,"
-    tag -- this is the real-time pacing signal used by run_stream() (see
-    the "Real-time pacing" module docstring section for why this is
-    necessary: ffmpeg -c copy does not pace its own output at all).
+    tag -- this is the real-time pacing signal used by run_stream() /
+    stream_segment_to_ffmpeg() (see the module docstring's "Real-time
+    pacing" section).
 
     If a segment's #EXTINF is missing or fails to parse as a float,
     DEFAULT_SEGMENT_DURATION_SECONDS is used for that segment instead of
@@ -745,37 +798,74 @@ def write_stdin_with_timeout(proc: subprocess.Popen, data: bytes, timeout: float
         writer.write(data, timeout)
 
 
-def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_id: str) -> bool:
+def stream_segment_to_ffmpeg(
+    seg_url: str,
+    proc: subprocess.Popen,
+    stream_id: str,
+    seg_duration: float,
+    pacer: _Pacer,
+) -> bool:
     """
-    Ekta segment fetch kore, chunk kore ffmpeg er stdin e write kore.
-    BrokenPipeError uthle mane ffmpeg mara geche -- caller ke propagate kori.
-    Onno kono network error hole retry kori, sob retry fail korle False.
+    Ekta segment fetch kore, ffmpeg er stdin e write kore -- WITH real-time
+    pacing spread evenly across the whole segment (see the module
+    docstring's "Real-time pacing" section for why per-segment-not-per-chunk
+    pacing caused periodic RTMP disconnects).
 
-    NOTE: this function fetches+writes as fast as the network allows --
-    it does NOT pace itself against the segment's playback duration.
-    Pacing (sleeping to match real-time) is handled by the caller
-    (run_stream()'s segment loop), AFTER this function returns, using the
-    segment's #EXTINF duration -- keeping "how do I get the bytes there"
-    and "how fast should this play back" as separate concerns.
+    Flow:
+        1. Fetch the ENTIRE segment into memory first (resp.read() with no
+           size limit) -- this part is deliberately NOT paced, since
+           buffering a single HLS segment (typically a few hundred KB to a
+           couple MB) in RAM is cheap, and decouples "how fast can this be
+           downloaded" from "how should this be fed to ffmpeg".
+        2. Write the buffered bytes to ffmpeg's stdin in CHUNK_SIZE pieces.
+           After each piece, call pacer.advance() with that piece's
+           proportional share of seg_duration -- e.g. a piece that's 10%
+           of the segment's total bytes advances the schedule by 10% of
+           its duration. This keeps bytes flowing continuously and evenly
+           across the segment's real playback time, instead of arriving
+           as one fast burst followed by a long silent gap.
+
+    BrokenPipeError/StuckPipeError uthle mane ffmpeg mara geche/stuck --
+    caller ke propagate kori (no retry -- caller restarts ffmpeg). Onno
+    kono network/fetch error hole (segment download failed) puro segment
+    abar notun kore fetch+write kora hoy (fresh attempt, since nothing may
+    have been written yet for a fetch-phase failure); sob retry fail korle
+    False.
     """
     for attempt in range(SEGMENT_FETCH_RETRIES):
         try:
             req = urllib.request.Request(seg_url, headers={"User-Agent": "stream-worker/1.0"})
             with urllib.request.urlopen(req, timeout=15) as resp:
-                while True:
-                    chunk = resp.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    write_stdin_with_timeout(proc, chunk)
-            return True
-        except (BrokenPipeError, StuckPipeError):
-            raise
+                data = resp.read()
         except Exception as e:
             logger.warning(
                 "[%s] Segment fetch fail (%s) attempt %d/%d: %s",
                 stream_id, seg_url, attempt + 1, SEGMENT_FETCH_RETRIES, e,
             )
             time.sleep(SEGMENT_RETRY_BACKOFF_BASE * (attempt + 1))
+            continue
+
+        total_bytes = len(data)
+        if total_bytes == 0:
+            # Empty segment (rare/edge case) -- nothing to write, but still
+            # advance the schedule by its announced duration so later
+            # segments don't drift ahead of real-time because of this gap.
+            pacer.advance(seg_duration)
+            return True
+
+        try:
+            offset = 0
+            while offset < total_bytes:
+                piece = data[offset: offset + CHUNK_SIZE]
+                write_stdin_with_timeout(proc, piece)
+                offset += len(piece)
+                pacer.advance(seg_duration * (len(piece) / total_bytes))
+            return True
+        except (BrokenPipeError, StuckPipeError):
+            # ffmpeg died/stuck mid-write -- propagate immediately, no
+            # retry here (the caller in run_stream() handles restarting
+            # ffmpeg and will move on to a fresh segment attempt itself).
+            raise
 
     return False
 
@@ -820,22 +910,10 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
     consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
     last_stall_check = time.time()
 
-    # --- Real-time pacing anchor ---
-    # playback_started_at is the wall-clock moment this worker began
-    # pushing video (set once, here -- NOT reset on ffmpeg crash-restarts
-    # or stall-restarts below, and NOT reset per playlist loop-around).
-    # scheduled_elapsed accumulates the *sum of segment durations* pushed
-    # so far. After each segment, we compare "how much playback time
-    # should have elapsed by now" (playback_started_at + scheduled_elapsed)
-    # against the actual current time, and sleep the difference if we're
-    # running ahead of real-time. If a crash/stall causes a real gap
-    # (nothing pushed for a while), scheduled_elapsed will already be
-    # behind wall-clock time when we resume, so no sleep happens until the
-    # backlog naturally catches up -- this is deliberate, not a bug: we
-    # don't try to make ffmpeg push faster than 1x to "catch up" after an
-    # outage, since -c copy has no speed-up mechanism anyway.
-    playback_started_at = time.time()
-    scheduled_elapsed = 0.0
+    # Single pacing schedule for the whole worker run -- created once
+    # here, NOT reset on ffmpeg crash/stall restarts or playlist
+    # loop-arounds below. See _Pacer's docstring for why.
+    pacer = _Pacer(shutdown_check=lambda: _shutdown_requested)
 
     if STALL_WATCHDOG_ENABLED:
         logger.info(
@@ -929,34 +1007,6 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
             logger.info("[%s] ffmpeg restarted after stall (pid=%s)", stream_id, proc.pid)
             _report_stream_recovered(stream_id, status="live")
 
-    def _pace_after_segment(seg_duration: float) -> None:
-        """
-        Real-time pacing -- see the module docstring's "Real-time pacing"
-        section for the full rationale. Called once after each segment is
-        successfully pushed to ffmpeg's stdin.
-
-        Advances scheduled_elapsed by this segment's real duration, then
-        sleeps just enough (in small chunks, so shutdown is noticed
-        promptly) to bring wall-clock time back in line with the
-        schedule -- but only if we're AHEAD of schedule. If fetching and
-        writing this segment already took longer than its own duration
-        (slow network, retry, etc.), we do not sleep and do not try to
-        "catch up" by pushing faster -- ffmpeg -c copy has no such
-        mechanism, and letting the natural delay stand is the correct
-        real-time behavior anyway.
-        """
-        nonlocal scheduled_elapsed
-        scheduled_elapsed += seg_duration
-        target_time = playback_started_at + scheduled_elapsed
-        sleep_needed = target_time - time.time()
-        if sleep_needed <= 0:
-            return
-        waited = 0.0
-        while waited < sleep_needed and not _shutdown_requested:
-            step = min(PACING_SLEEP_STEP, sleep_needed - waited)
-            time.sleep(step)
-            waited += step
-
     try:
         while not _shutdown_requested:
             for entry in playlist:
@@ -991,7 +1041,7 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                     seg_duration = seg["duration"]
 
                     try:
-                        ok = stream_segment_to_ffmpeg(seg_url, proc, stream_id)
+                        ok = stream_segment_to_ffmpeg(seg_url, proc, stream_id, seg_duration, pacer)
                         if not ok:
                             logger.warning("[%s] Segment permanently skipped: %s", stream_id, seg_url)
                     except (BrokenPipeError, StuckPipeError) as e:
@@ -1048,14 +1098,6 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                         last_stall_check = time.time()
                         logger.info("[%s] ffmpeg restarted (pid=%s)", stream_id, proc.pid)
                         _report_stream_recovered(stream_id, status="live")
-                    else:
-                        # Segment delivered (or permanently skipped after
-                        # retries) without a pipe error -- pace ourselves
-                        # against real playback time before moving to the
-                        # next segment. Skipped on the crash-restart path
-                        # above, since a real outage already introduced a
-                        # gap that pacing shouldn't try to "fix".
-                        _pace_after_segment(seg_duration)
 
                 if proc is None:
                     break
