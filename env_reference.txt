@@ -1,34 +1,46 @@
-# # SRS RTMP ingest URL -- ei stream ta SRS er kon app/stream-key e push hobe
-# RTMP_URL=rtmp://localhost:1935/live/stream_01
-
-# # Log/console e ei stream ke identify korar naam
-# STREAM_NAME=stream_01
-
-# # Video playlist -- ekta JSON array (ekta line e), proti item e title+url
-# # Title na dile script nijer theke video_1, video_2... boshiye dibe
-# STREAM_PLAYLIST=[{"title":"Video 1","url":"https://your-r2-domain.com/v1/playlist.m3u8"},{"title":"Video 2","url":"https://your-r2-domain.com/v2/playlist.m3u8"}]
-
-
-# RTMP_URL=http://0.0.0.0:8080/live.flv
-
 # প্রথম backoff কত সেকেন্ড থেকে শুরু হবে
 RESTART_BACKOFF_BASE=2
 # backoff সর্বোচ্চ কত সেকেন্ড পর্যন্ত বাড়বে
 RESTART_BACKOFF_MAX=60
 DEBUG=true
 
-STALL_TIMEOUT_SECONDS=60      
+STALL_TIMEOUT_SECONDS=60
 # চাইলে আরো বড় করে দাও (যেমন 90 বা 120) আরো নিরাপদ থাকতে
-STALL_WATCHDOG_ENABLED=true   
+STALL_WATCHDOG_ENABLED=true
 # false দিলে পুরোপুরি বন্ধ
 
 NMS_DIR=node-media-server
 
-RTMP_URL=rtmp://localhost:1935/live/stream_01
-STREAM_NAME=stream_01
-STREAM_PLAYLIST=["https://videos.restreamhub.live/proccessed-videos/9cfd9e88-ccdf-46a9-a0c7-77c849cd5730/index.m3u8", "https://videos.restreamhub.live/proccessed-videos/d29890b7-8ded-4ebb-b07e-57250c368d87/index.m3u8"]
+# ============================================================
+# RTMP_URL ekhon ekta BASE URL -- STREAM_NAME ar lagbe na.
+# Trailing '/' porjonto rakho, kono stream key/naam add koro na -- actual
+# push (stream_worker_stdin.py) r pull (push_relay.py) URL nijeই STREAM_ID
+# jog kore banano hoy: base + '/' + STREAM_ID.
+#   e.g. RTMP_URL=rtmp://localhost:1935/live/ + STREAM_ID=abc-123
+#        -> actual URL: rtmp://localhost:1935/live/abc-123
+# ============================================================
+RTMP_URL=rtmp://localhost:1935/live/
 
-PUSH_DESTINATIONS=[{"name":"youtube","url":"rtmp://a.rtmp.youtube.com/live2/bhfp-r56a-uq01-70ha-c147"}]
+# ============================================================
+# STREAM_ID -- public.streams.id (uuid). Ei ekta value:
+#   1) push/pull URL-er path/stream-key hisebe use hoy (upore dekho),
+#   2) log line e "[stream=...]" hisebe bosbe,
+#   3) stream_worker_stdin.py: STREAM_ID -> streams.playlist_id ->
+#      playlist_items (sort_order onujayi) -- video playlist load korar
+#      jonno Supabase e query hoy,
+#   4) push_relay.py: STREAM_ID -> stream_destinations rows -- proti row
+#      ekta destination (platform/rtmp_url/stream_key), r proti destination
+#      er jonno ALADA ffmpeg process spawn hoy.
+# Supabase unreachable/misconfigured hole (network down, playlist_id null,
+# playlist_items/stream_destinations khali) stream/relay shuru hobe na --
+# fixed interval e (15s) infinite retry cholbe jotokkhon na valid data
+# pawa jay.
+# ============================================================
+STREAM_ID=<uuid -- public.streams.id>
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+# service_role key -- RLS bypass kore, tai eta SHUDHU server-side/backend e
+# (ei .env file, k8s Secret) rakho, kokhono client/browser/frontend code e na.
+SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 
 # ============================================================
 # Kubernetes deploy korar shomoy nicher note gulo dekho -- ei
@@ -38,11 +50,12 @@ PUSH_DESTINATIONS=[{"name":"youtube","url":"rtmp://a.rtmp.youtube.com/live2/bhfp
 # 1) ConfigMap vs Secret split:
 #    - ConfigMap e rakho (non-sensitive): RESTART_BACKOFF_BASE,
 #      RESTART_BACKOFF_MAX, DEBUG, STALL_TIMEOUT_SECONDS,
-#      STALL_WATCHDOG_ENABLED, NMS_DIR, RTMP_URL, STREAM_NAME,
-#      STREAM_PLAYLIST, HEALTH_PORT
-#    - Secret e rakho (sensitive -- stream key thake): PUSH_DESTINATIONS
-#      (etar moddhe YouTube/Facebook er live stream key ache -- eta
-#      leak hole jekeu tomar channel e push korte parbe)
+#      STALL_WATCHDOG_ENABLED, NMS_DIR, RTMP_URL, STREAM_ID, SUPABASE_URL,
+#      HEALTH_PORT
+#    - Secret e rakho (sensitive -- DB access thake):
+#      SUPABASE_SERVICE_ROLE_KEY (RLS bypass kore -- leak hole je-kono
+#      streams/playlist/stream_destinations row poRte parbe, stream key-o
+#      shoho)
 #    Deployment manifest e Secret ke `envFrom.secretRef` r ConfigMap ke
 #    `envFrom.configMapRef` diye inject korle, main.py/worker/relay er
 #    load_env_file() nijei shei value gulo respect korbe (os.environ e
@@ -50,19 +63,18 @@ PUSH_DESTINATIONS=[{"name":"youtube","url":"rtmp://a.rtmp.youtube.com/live2/bhfp
 #    image e na thakleo (recommended -- production e .env baked-in na
 #    rakhai bhalo) code kono change chara i cholbe.
 #
-# 2) HEALTH_PORT (notun, main.py e add kora hoyeche): main.py ekhon
-#    /healthz (liveness) r /readyz (readiness) serve kore ei port e
-#    (default 8081). Deployment manifest e containerPort + livenessProbe/
-#    readinessProbe eর shathe eta match korte hobe.
+# 2) HEALTH_PORT (main.py e ache): main.py ekhon /healthz (liveness) r
+#    /readyz (readiness) serve kore ei port e (default 8081). Deployment
+#    manifest e containerPort + livenessProbe/readinessProbe eর shathe
+#    eta match korte hobe.
 #
-# 3) File logging (RUN_ALL_LOG / WORKER_LOG / PUSH_RELAY_LOG): ekhon
-#    DEFAULT E OFF -- kichu set na korleo console/stdout-only logging
-#    hobe (k8s log collector shetai tule nebe). File-e-o log rakhte
-#    chaile (e.g. local dev e) explicitly filename set koro, e.g.:
-#    RUN_ALL_LOG=run_all.log
+# 3) File logging (RUN_ALL_LOG / WORKER_LOG / PUSH_RELAY_LOG): default e
+#    OFF -- kichu set na korleo console/stdout-only logging hobe (k8s log
+#    collector shetai tule nebe). File-e-o log rakhte chaile (e.g. local
+#    dev e) explicitly filename set koro, e.g.: RUN_ALL_LOG=run_all.log
 #
-# 4) replicas: 1 rakho Deployment e -- eta horizontally scale kora
-#    jaবে na (ekta Pod = ekta stream pipeline).
+# 4) replicas: 1 rakho Deployment e -- eta horizontally scale kora jaবে
+#    na (ekta Pod = ekta stream pipeline).
 #
 # 5) terminationGracePeriodSeconds: 30+ rakho -- RESTART_BACKOFF_MAX
 #    (60s) r ffmpeg/node graceful shutdown shomoy dhorle SIGTERM er por

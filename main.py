@@ -42,8 +42,13 @@ Config (.env file theke, ba environment variable diye override):
     WORKER_LOG=stream_01.log               # stream_worker_stdin.py er log file naam
     PUSH_RELAY_LOG=push_relay.log          # push_relay er log file naam
     RUN_ALL_LOG=run_all.log                # main.py nijer log file naam
-    RTMP_URL=rtmp://localhost:1935/live/stream_01  # NMS readiness check-er jonno host:port ekhan theke ber kora hoy
-    STREAM_ID=stream_01                    # proti log line e "[stream=...]" hisebe bosbe
+    RTMP_URL=rtmp://localhost:1935/live/   # BASE URL (STREAM_NAME ar lagbe na -- STREAM_ID-i ekhon
+                                            # push/pull path e boshe: base + '/' + STREAM_ID). Ei
+                                            # variable theke shudhu host:port ber kora hoy (NMS
+                                            # readiness check-er jonno) -- path/stream-id ta matter
+                                            # kore na ei check-er jonno.
+    STREAM_ID=<uuid>                       # proti log line e "[stream=...]" hisebe bosbe, r
+                                            # worker/relay-er actual push/pull URL-er path/key-o eta-i
     DEBUG=false                            # true dile verbose (DEBUG level) log dekhabe
     RESTART_BACKOFF_BASE=2                 # process crash korle koto sec theke restart backoff shuru hobe
     RESTART_BACKOFF_MAX=60                 # backoff max koto second porjonto barbe
@@ -412,7 +417,7 @@ def main():
     restart_backoff_base = float(os.environ.get("RESTART_BACKOFF_BASE", "2"))
     restart_backoff_max = float(os.environ.get("RESTART_BACKOFF_MAX", "60"))
 
-    rtmp_url = os.environ.get("RTMP_URL", "rtmp://localhost:1935/live/stream_01")
+    rtmp_url = os.environ.get("RTMP_URL", "rtmp://localhost:1935/live/")
     nms_host, nms_port = _parse_host_port(rtmp_url)
 
     # (default e empty -- file logging off, console/stdout-only. Filename
