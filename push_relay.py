@@ -63,6 +63,29 @@ def handle_reload(signum, frame):
     _reload_requested = True
 
 
+def _strip_inline_comment(value: str) -> str:
+    """
+    Value quoted thakle (shuru ' ba " diye), quote-er por ja ache
+    (trailing " # comment" shoho) ignore kore shudhu quoted part rakhe.
+    Quoted na thakle, first unquoted ' #' (space+hash) ba tab+hash theke
+    shuru kore baki shob truncate kore -- e.g.
+    `RESTART_BACKOFF_BASE=2   # comment` theke shudhu `2` ber hoy.
+    """
+    if not value:
+        return value
+    if value[0] in ("'", '"'):
+        quote = value[0]
+        end = value.find(quote, 1)
+        if end != -1:
+            return value[: end + 1]
+        return value
+    for marker in (" #", "\t#"):
+        idx = value.find(marker)
+        if idx != -1:
+            value = value[:idx]
+    return value.rstrip()
+
+
 def load_env_file(env_file_path: str) -> None:
     path = Path(env_file_path)
     if not path.exists():
@@ -80,7 +103,7 @@ def load_env_file(env_file_path: str) -> None:
 
             key, _, value = line.partition("=")
             key = key.strip()
-            value = value.strip()
+            value = _strip_inline_comment(value.strip())
 
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
                 value = value[1:-1]
