@@ -378,7 +378,17 @@ def _terminate(p: subprocess.Popen) -> None:
             p.kill()
             p.wait(timeout=5)
         except Exception:
-            pass
+            # Even kill -9 can fail to reap within the timeout in rare
+            # cases (e.g. the process is stuck in uninterruptible D-state
+            # on a stalled disk/network syscall). Rather than silently
+            # abandoning the child here -- which leaves it an unreaped
+            # zombie for as long as this long-running process keeps
+            # going, a real risk over months of continuous restarts --
+            # hand the reap off to a best-effort background thread that
+            # just blocks on wait() until the OS finally allows it to
+            # complete. This doesn't block the caller and guarantees the
+            # child eventually gets reaped instead of accumulating.
+            threading.Thread(target=p.wait, daemon=True).start()
     for stream in (getattr(p, "stdout", None), getattr(p, "stderr", None)):
         try:
             if stream:
@@ -411,6 +421,13 @@ def run_destination(dest: dict, source_url: str, stop_flag: threading.Event) -> 
 
     consecutive_crashes = 0
     last_stall_check = time.time()
+    # A permanently-broken destination (e.g. a stream key that's never
+    # fixed) would otherwise PATCH the exact same error_message to Supabase
+    # on every single restart, forever -- unnecessary write volume that
+    # scales with uptime. Mirrors stream_worker_stdin.py's
+    # _last_reported_error dedup: only re-report when the message actually
+    # changes.
+    last_reported_error = None
 
     if STALL_WATCHDOG_ENABLED:
         logger.info(
@@ -420,18 +437,38 @@ def run_destination(dest: dict, source_url: str, stop_flag: threading.Event) -> 
         )
 
     def _restart(reason: str) -> "subprocess.Popen | None":
-        nonlocal consecutive_crashes
+        nonlocal consecutive_crashes, last_reported_error
         ran_for = time.time() - getattr(proc, "_started_at", 0)
         if ran_for < STABLE_RUN_SECONDS:
             consecutive_crashes += 1
         else:
             consecutive_crashes = 0
-        delay = min(RESTART_DELAY * (2 ** consecutive_crashes), RESTART_BACKOFF_MAX)
+        # 2**consecutive_crashes-er exponent cap kora hocche -- delay eto
+        # age-i RESTART_BACKOFF_MAX e giye cap hoye jay, tai exponent ke
+        # arো barano shudhu wasted computation. Eta na thakle, ekta
+        # permanently-broken destination (e.g. bad stream key kokhono fix
+        # hoyni) mash-er por mash proti restart e instantly fail korte
+        # thakle consecutive_crashes unboundedly barte thake (raw count
+        # rakha hoyeche log-e accurate dekhanor jonno, plain-int increment
+        # cheap), r 2**consecutive_crashes ekta astronomically boro
+        # integer hoye jay -- shudhu min() diye felar jonno proti restart e
+        # ei bignum compute kora CPU/memory-r opocoy.
+        capped_exponent = min(consecutive_crashes, 12)
+        delay = min(RESTART_DELAY * (2 ** capped_exponent), RESTART_BACKOFF_MAX)
         logger.warning(
             "[%s] Restarting ffmpeg in %.1fs (%s, consecutive quick failures: %d)...",
             name, delay, reason, consecutive_crashes,
         )
-        update_destination_status(dest_id, status="connecting", error_message=reason)
+        # status="connecting" is always written (that transition itself is
+        # meaningful), but error_message is only overwritten when it's
+        # actually new -- avoids redundant identical PATCH bodies on every
+        # restart of a destination that's been broken the same way for a
+        # long time.
+        if reason != last_reported_error:
+            last_reported_error = reason
+            update_destination_status(dest_id, status="connecting", error_message=reason)
+        else:
+            update_destination_status(dest_id, status="connecting")
         waited = 0.0
         while waited < delay and not _shutdown_requested and not stop_flag.is_set():
             time.sleep(0.5)
@@ -442,6 +479,7 @@ def run_destination(dest: dict, source_url: str, stop_flag: threading.Event) -> 
         if new_proc is not None:
             logger.info("[%s] ffmpeg restarted (pid=%s)", name, new_proc.pid)
             update_destination_status(dest_id, status="live", error_message=None)
+            last_reported_error = None
         return new_proc
 
     try:

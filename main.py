@@ -359,10 +359,25 @@ class ManagedProcess:
         )
         return True
 
+    # 2**n er exponent-er upor ekta hard ceiling -- delay eto age-i
+    # restart_backoff_max e cap hoye jay (e.g. base=2 hole 2**10*2 already
+    # 2048, kono normal restart_backoff_max-er cheye onek beshi) je exponent
+    # ke arো barano shudhu-i wasted computation. Eta chara, kono ekta
+    # process (e.g. bad config, permanently-down endpoint) mash-er por
+    # mash fail korte thakle self.consecutive_failures unboundedly barte
+    # thake (restart cycle proti ekbar increment -- ei plain-int increment
+    # nijei cheap, kono somossha na), kintu 2**self.consecutive_failures
+    # ekta astronomically boro integer hoye jay -- shudhu min() diye felar
+    # jonno proti restart e ei bignum compute kora CPU/memory-r niredik
+    # opocoy. Tai raw counter (log-e accurate count dekhanor jonno) rekhe,
+    # SHUDHU exponent hisebe use howar age take cap kora hocche.
+    _MAX_BACKOFF_EXPONENT = 12
+
     def note_failure_and_backoff(self) -> None:
         self.consecutive_failures += 1
+        capped_exponent = min(self.consecutive_failures - 1, self._MAX_BACKOFF_EXPONENT)
         delay = min(
-            self.restart_backoff_base * (2 ** (self.consecutive_failures - 1)),
+            self.restart_backoff_base * (2 ** capped_exponent),
             self.restart_backoff_max,
         )
         logger.warning(

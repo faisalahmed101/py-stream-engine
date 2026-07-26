@@ -769,7 +769,16 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                 p.kill()
                 p.wait(timeout=5)
             except Exception:
-                pass
+                # Even kill -9 can fail to reap within the timeout in rare
+                # cases (e.g. the process is stuck in uninterruptible
+                # D-state on a stalled disk/network syscall). Rather than
+                # silently abandoning the child here -- which leaves it an
+                # unreaped zombie for as long as this long-running worker
+                # keeps going, a real risk over months of continuous
+                # restarts -- hand the reap off to a best-effort background
+                # thread that just blocks on wait() until the OS finally
+                # allows it to complete.
+                threading.Thread(target=p.wait, daemon=True).start()
         for stream in (getattr(p, "stdout", None), getattr(p, "stderr", None)):
             try:
                 if stream:
@@ -811,9 +820,19 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
             consecutive_crashes += 1
         else:
             consecutive_crashes = 0
-        delay = min(FFMPEG_RESTART_DELAY * (2 ** consecutive_crashes), FFMPEG_RESTART_BACKOFF_MAX)
+        # Exponent capped -- see the crash-restart path below for why
+        # (avoids an ever-growing bignum computation if the stream stays
+        # broken for weeks/months without anyone noticing).
+        capped_exponent = min(consecutive_crashes, 12)
+        delay = min(FFMPEG_RESTART_DELAY * (2 ** capped_exponent), FFMPEG_RESTART_BACKOFF_MAX)
         logger.warning("[%s] Restarting ffmpeg in %.1fs after stall...", stream_id, delay)
-        time.sleep(delay)
+        # Chunked sleep (was a plain time.sleep(delay)) so a shutdown
+        # signal during this wait (up to FFMPEG_RESTART_BACKOFF_MAX=30s)
+        # is noticed promptly instead of delaying SIGTERM handling.
+        waited = 0.0
+        while waited < delay and not _shutdown_requested:
+            time.sleep(0.5)
+            waited += 0.5
 
         new_proc = _build_ffmpeg_or_wait(rtmp_url, stream_id)
         proc = new_proc  # None if shutdown was requested while waiting -- caller checks _shutdown_requested
@@ -880,15 +899,30 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                             consecutive_crashes += 1
                         else:
                             consecutive_crashes = 0
+                        # Exponent capped -- if ffmpeg keeps crashing
+                        # instantly for weeks/months (e.g. a config issue
+                        # nobody notices), consecutive_crashes would
+                        # otherwise grow unboundedly and 2**consecutive_crashes
+                        # would become an ever-larger bignum computed on
+                        # every single restart, for no benefit (delay is
+                        # already capped at FFMPEG_RESTART_BACKOFF_MAX long
+                        # before the exponent gets anywhere near this).
+                        capped_exponent = min(consecutive_crashes, 12)
                         delay = min(
-                            FFMPEG_RESTART_DELAY * (2 ** consecutive_crashes),
+                            FFMPEG_RESTART_DELAY * (2 ** capped_exponent),
                             FFMPEG_RESTART_BACKOFF_MAX,
                         )
                         logger.warning(
                             "[%s] Restarting ffmpeg in %.1fs (consecutive quick failures: %d)...",
                             stream_id, delay, consecutive_crashes,
                         )
-                        time.sleep(delay)
+                        # Chunked sleep so SIGTERM/SIGINT during this wait
+                        # (up to FFMPEG_RESTART_BACKOFF_MAX=30s) is noticed
+                        # promptly instead of delaying shutdown.
+                        waited = 0.0
+                        while waited < delay and not _shutdown_requested:
+                            time.sleep(0.5)
+                            waited += 0.5
                         proc = _build_ffmpeg_or_wait(rtmp_url, stream_id)
                         if proc is None:
                             break  # shutdown requested while waiting for ffmpeg
