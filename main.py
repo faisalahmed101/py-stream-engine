@@ -282,12 +282,18 @@ class ManagedProcess:
         cmd = self.build_cmd()
         logger.info(f"[{self.name}] Starting: {' '.join(cmd)}")
         self.ready_event.clear()
+        # PYTHONUNBUFFERED=1 -- belt-and-suspenders alongside the "-u" flag
+        # on the WORKER/RELAY build_cmd (see those comments): guarantees
+        # unbuffered stdout even if a future build_cmd change forgets "-u".
+        # Harmless/no-op for NMS (node), since node doesn't read this var.
+        child_env = {**os.environ, "PYTHONUNBUFFERED": "1"}
         try:
             self.proc = subprocess.Popen(
                 cmd,
                 cwd=self.cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                env=child_env,
             )
         except OSError as e:
             # e.g. FileNotFoundError -- the command binary (like "node")
@@ -437,7 +443,15 @@ def main():
     )
     worker = ManagedProcess(
         "WORKER",
-        build_cmd=lambda: [sys.executable, "stream_worker_stdin.py"]
+        # "-u": stdout ekhon subprocess.PIPE e redirect hocche (TTY na), tai
+        # Python default e block-buffered hoye jay -- "Pushing:" log line
+        # print hoyeo onek shomoy dhore parent (main.py) er kache pouchay na
+        # (buffer bhorা na porjonto), fole wait_ready() proti bar timeout
+        # hoye "fallback" warning dey r merged console log delayed batches e
+        # ashe. "-u" diye Python ke unbuffered stdout/stderr e force kora
+        # hocche, jate readiness marker r shob log line sathe sathe (near
+        # real-time) main.py porjonto pouchay.
+        build_cmd=lambda: [sys.executable, "-u", "stream_worker_stdin.py"]
         + (["--log-file", worker_log] if worker_log else []),
         cwd=str(here),
         ready_pattern="Pushing:",  # first segment publish shuru howar log line
@@ -446,7 +460,10 @@ def main():
     )
     relay = ManagedProcess(
         "RELAY",
-        build_cmd=lambda: [sys.executable, "push_relay.py"]
+        # "-u" -- see WORKER comment above; same buffering issue applies
+        # here (no ready_pattern for RELAY, but its regular log lines would
+        # otherwise arrive in delayed chunks in the merged console output).
+        build_cmd=lambda: [sys.executable, "-u", "push_relay.py"]
         + (["--log-file", push_relay_log] if push_relay_log else []),
         cwd=str(here),
         restart_backoff_base=restart_backoff_base,

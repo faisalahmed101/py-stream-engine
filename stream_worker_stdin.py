@@ -81,6 +81,7 @@ from supabase_client import (
     SupabaseFetchError,
     is_configured as supabase_is_configured,
     supabase_get,
+    supabase_patch,
     wait_for_supabase,
 )
 
@@ -350,6 +351,60 @@ def fetch_playlist_from_supabase(stream_id: str) -> list[dict]:
     return playlist
 
 
+def _now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def update_stream_status(stream_id: str, **fields) -> None:
+    """
+    public.streams row (id=stream_id) er status/error_message/started_at/
+    ended_at update kore. Best-effort -- supabase_patch() nijei shob error
+    swallow kore (shudhu logger warning dey jodi logger deওয়া thake), tai
+    eta kokhono actual ffmpeg push pipeline ke block/crash korate pare na
+    -- status reporting fail hoile-o (e.g. Supabase temporarily unreachable)
+    stream chalte thake, shudhu UI-te status stale thake jotokkhon na porer
+    successful update hoy.
+    """
+    supabase_patch("streams", {"id": f"eq.{stream_id}"}, fields, logger=logger)
+
+
+# Last error message actually written to streams.error_message -- used to
+# dedupe repeated identical-error reports (e.g. Supabase down triggers the
+# SAME error every SUPABASE_RETRY_INTERVAL_SECONDS=15s; without this, every
+# single retry would fire a redundant PATCH call).
+_last_reported_error: "str | None" = None
+
+
+def _report_stream_problem(stream_id: str, message: str) -> None:
+    """
+    streams.status='error' + streams.error_message=message set kore --
+    kintu SHUDHU jodi ei EXACT message ager theke already report kora na
+    hoye thake (dekho _last_reported_error). 'error' status ekhane
+    NECESSARILY terminal na -- worker kokhono permanently give up kore na,
+    infinite retry cholte thake, r successful hoile status abar
+    'connecting'/'live' e phire jay (dekho _report_stream_recovered) --
+    exactly push_relay.py-r stream_destinations.status jevabe
+    connecting/live/error er moddhe swing kore, shei same pattern.
+    """
+    global _last_reported_error
+    if message == _last_reported_error:
+        return
+    _last_reported_error = message
+    update_stream_status(stream_id, status="error", error_message=message)
+
+
+def _report_stream_recovered(stream_id: str, **fields) -> None:
+    """
+    Stream abar successfully connecting/live obosthay gele call kora hoy --
+    error_message clear kore r dedupe state (_last_reported_error) reset
+    kore, jate porer bar ekta notun/different problem hole seta
+    "already-reported" hisebe bhul kore skip na hoy.
+    """
+    global _last_reported_error
+    _last_reported_error = None
+    update_stream_status(stream_id, error_message=None, **fields)
+
+
 def _load_playlist_or_wait(stream_id: str) -> "list[dict] | None":
     """
     fetch_playlist_from_supabase() wrapper with infinite retry+fixed-backoff
@@ -361,7 +416,10 @@ def _load_playlist_or_wait(stream_id: str) -> "list[dict] | None":
     Both ValueError (bad/missing data) and SupabaseFetchError (transient
     network/DB issue) are retried identically here -- from this worker's
     point of view "DB is down" and "DB says nothing is ready yet" both
-    just mean "not ready, keep waiting".
+    just mean "not ready, keep waiting". Each failed attempt is also
+    reported to streams.status='error' / streams.error_message (deduped
+    -- see _report_stream_problem), so the failure is visible outside the
+    logs too.
 
     Returns None only if shutdown was requested while waiting.
     """
@@ -371,6 +429,7 @@ def _load_playlist_or_wait(stream_id: str) -> "list[dict] | None":
         shutdown_check=lambda: _shutdown_requested,
         logger=logger,
         retry_interval=SUPABASE_RETRY_INTERVAL_SECONDS,
+        on_retry=lambda e: _report_stream_problem(stream_id, f"Could not load playlist: {e}"[:500]),
     )
 
 
@@ -473,12 +532,13 @@ def _build_ffmpeg_or_wait(rtmp_url: str, stream_id: str) -> subprocess.Popen:
         try:
             return build_ffmpeg_process(rtmp_url)
         except FileNotFoundError:
+            message = "ffmpeg binary not found (not installed, or not on PATH)."
             logger.error(
-                "[%s] ffmpeg binary not found (not installed, or not on PATH). "
-                "Install it (e.g. 'apt install ffmpeg' / 'brew install ffmpeg') -- "
+                "[%s] %s Install it (e.g. 'apt install ffmpeg' / 'brew install ffmpeg') -- "
                 "retrying in %.0fs...",
-                stream_id, FFMPEG_RESTART_BACKOFF_MAX,
+                stream_id, message, FFMPEG_RESTART_BACKOFF_MAX,
             )
+            _report_stream_problem(stream_id, message)
             waited = 0.0
             while waited < FFMPEG_RESTART_BACKOFF_MAX and not _shutdown_requested:
                 time.sleep(0.5)
@@ -658,9 +718,16 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
     # process pura crash kore main.py dara restart hole, run_stream() abar
     # notun kore call hoy -- tokhon DB theke fresh data ashbe (e.g. keu
     # playlist update kore thakle seta pore next restart e effective hobe).
+
+    # Fresh attempt shuru hocche -- age kono 'error'/'ended' obostha thakleo
+    # (e.g. purono crash theke restart), ekhon abar notun kore try kora
+    # hocche, tai status='connecting' r error_message clear kora hocche.
+    _report_stream_recovered(stream_id, status="connecting")
+
     playlist = _load_playlist_or_wait(stream_id)
     if playlist is None:
         logger.info("[%s] Shutdown requested before the playlist could be loaded from Supabase.", stream_id)
+        update_stream_status(stream_id, status="ended", ended_at=_now_iso())
         return
     logger.info(
         "[%s] Playlist loaded from Supabase, %d video(s).",
@@ -670,8 +737,14 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
     proc = _build_ffmpeg_or_wait(rtmp_url, stream_id)
     if proc is None:
         logger.info("[%s] Shutdown requested before ffmpeg could start.", stream_id)
+        update_stream_status(stream_id, status="ended", ended_at=_now_iso())
         return
     logger.info("[%s] ffmpeg (pid=%s) started, connecting to SRS...", stream_id, proc.pid)
+    # started_at shudhu EKHANE (first successful ffmpeg start) set kora hoy --
+    # porer crash-restart/stall-restart gulo (nichey) status abar 'live' e
+    # phiriye ane kintu started_at overwrite kore na, jate UI-te "eta kokhon
+    # theke live royeche" ta continuous crash-restart e reset na hoy.
+    _report_stream_recovered(stream_id, status="live", started_at=_now_iso())
 
     consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
     last_stall_check = time.time()
@@ -727,6 +800,10 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
             "treating this as a silent stall (process alive but stuck) and forcing a restart...",
             stream_id, stalled_for, getattr(proc, "_last_progress_bytes", "?"),
         )
+        _report_stream_problem(
+            stream_id,
+            f"Stalled for {stalled_for:.0f}s (no forward progress), restarting ffmpeg."[:500],
+        )
         _terminate(proc)
 
         ran_for = time.time() - getattr(proc, "_started_at", 0)
@@ -743,6 +820,7 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
         if proc is not None:
             last_stall_check = time.time()
             logger.info("[%s] ffmpeg restarted after stall (pid=%s)", stream_id, proc.pid)
+            _report_stream_recovered(stream_id, status="live")
 
     try:
         while not _shutdown_requested:
@@ -789,6 +867,9 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                         if tail:
                             logger.warning("[%s] ffmpeg last error:\n%s", stream_id, "\n".join(tail))
 
+                        error_detail = f"ffmpeg {reason}" + (f": {tail[-1]}" if tail else "")
+                        _report_stream_problem(stream_id, error_detail[:500])
+
                         # Stream never permanently stops: we always retry, just with
                         # a progressively longer (capped) delay if ffmpeg keeps
                         # crashing right away -- avoids hammering SRS/network in a
@@ -813,6 +894,7 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
                             break  # shutdown requested while waiting for ffmpeg
                         last_stall_check = time.time()
                         logger.info("[%s] ffmpeg restarted (pid=%s)", stream_id, proc.pid)
+                        _report_stream_recovered(stream_id, status="live")
 
                 if proc is None:
                     break
@@ -826,6 +908,7 @@ def run_stream(rtmp_url: str, stream_id: str) -> None:
         logger.info("[%s] Shutting down, cleaning up ffmpeg...", stream_id)
         if proc is not None:
             _terminate(proc)
+        update_stream_status(stream_id, status="ended", ended_at=_now_iso(), error_message=None)
         logger.info("[%s] Worker stopped.", stream_id)
 
 

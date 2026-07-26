@@ -152,7 +152,8 @@ def supabase_patch(path: str, params: dict, body: dict, logger=None) -> None:
 
 
 def wait_for_supabase(fetch_fn, *, description: str, shutdown_check, logger,
-                       retry_interval: float = SUPABASE_RETRY_INTERVAL_SECONDS):
+                       retry_interval: float = SUPABASE_RETRY_INTERVAL_SECONDS,
+                       on_retry=None):
     """
     Generic "keep retrying a Supabase fetch until it succeeds or shutdown
     is requested" wrapper -- mirrors the fixed-interval retry pattern used
@@ -168,6 +169,14 @@ def wait_for_supabase(fetch_fn, *, description: str, shutdown_check, logger,
                      stop waiting (e.g. `lambda: _shutdown_requested`).
     logger:         logger to report retries on.
     retry_interval: seconds between attempts (default: SUPABASE_RETRY_INTERVAL_SECONDS).
+    on_retry:       optional one-arg callable, invoked with the caught
+                     exception after each failed attempt -- e.g. so a
+                     caller can report the failure to its own status row
+                     (streams.status/error_message) without this shared
+                     helper needing to know anything about that table.
+                     Exceptions raised by on_retry itself are swallowed
+                     (a broken status-reporting hook must never break the
+                     actual retry loop).
 
     Both ValueError (bad/missing data) and SupabaseFetchError (transient
     network/DB issue) are retried identically -- from the caller's point of
@@ -185,6 +194,11 @@ def wait_for_supabase(fetch_fn, *, description: str, shutdown_check, logger,
                 "%s (attempt %d): %s -- retrying in %.0fs...",
                 description, attempt, e, retry_interval,
             )
+            if on_retry is not None:
+                try:
+                    on_retry(e)
+                except Exception:
+                    logger.debug("wait_for_supabase on_retry callback raised, ignoring.", exc_info=True)
             waited = 0.0
             while waited < retry_interval and not shutdown_check():
                 time.sleep(0.5)
