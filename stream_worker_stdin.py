@@ -44,6 +44,10 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urljoin
 
+from logging_setup import setup_logging, set_stream_id
+
+logger = setup_logging("stream_worker")  # log_file/stream_id main() theke set hobe
+
 # ---------- Config ----------
 SEGMENT_FETCH_RETRIES = 3
 SEGMENT_RETRY_BACKOFF_BASE = 2      # second
@@ -79,7 +83,7 @@ def drain_stderr(proc: subprocess.Popen, stream_name: str) -> None:
                 break
             line = raw_line.decode("utf-8", errors="ignore").rstrip()
             if line:
-                logging.debug("[%s] ffmpeg stderr: %s", stream_name, line)
+                logger.debug("[%s] ffmpeg stderr: %s", stream_name, line)
                 tail = getattr(proc, "_stderr_tail", None)
                 if tail is not None:
                     tail.append(line)
@@ -90,7 +94,7 @@ def drain_stderr(proc: subprocess.Popen, stream_name: str) -> None:
 
 def handle_signal(signum, frame):
     global _shutdown_requested
-    logging.info("Shutdown signal (%s) peyechi, current segment shesh hole বন্ধ হবে...", signum)
+    logger.info("Shutdown signal (%s) peyechi, current segment shesh hole বন্ধ হবে...", signum)
     _shutdown_requested = True
 
 
@@ -103,7 +107,7 @@ def load_env_file(env_file_path: str) -> None:
     """
     path = Path(env_file_path)
     if not path.exists():
-        logging.info(".env file paoya jayni (%s), শুধু shell environment use hobe.", env_file_path)
+        logger.info(".env file paoya jayni (%s), শুধু shell environment use hobe.", env_file_path)
         return
 
     with path.open("r", encoding="utf-8") as f:
@@ -112,7 +116,7 @@ def load_env_file(env_file_path: str) -> None:
             if not line or line.startswith("#"):
                 continue
             if "=" not in line:
-                logging.warning(".env file er %d nong line e '=' nai, skip kora hocche: %s", line_num, line)
+                logger.warning(".env file er %d nong line e '=' nai, skip kora hocche: %s", line_num, line)
                 continue
 
             key, _, value = line.partition("=")
@@ -125,7 +129,7 @@ def load_env_file(env_file_path: str) -> None:
 
             os.environ.setdefault(key, value)
 
-    logging.info(".env file theke variables load kora hoyeche: %s", env_file_path)
+    logger.info(".env file theke variables load kora hoyeche: %s", env_file_path)
 
 
 def load_playlist_from_env(env_var: str) -> list[dict]:
@@ -183,7 +187,7 @@ def get_segment_urls(m3u8_url: str) -> list[str]:
             data = fetch_bytes(m3u8_url).decode("utf-8", errors="ignore")
             break
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 "m3u8 fetch fail (%s) attempt %d/%d: %s",
                 m3u8_url, attempt + 1, M3U8_FETCH_RETRIES, e,
             )
@@ -333,7 +337,7 @@ def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: 
         except (BrokenPipeError, StuckPipeError):
             raise
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 "[%s] Segment fetch fail (%s) attempt %d/%d: %s",
                 stream_name, seg_url, attempt + 1, SEGMENT_FETCH_RETRIES, e,
             )
@@ -344,13 +348,13 @@ def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: 
 
 def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
     playlist = load_playlist_from_env(playlist_env)
-    logging.info(
+    logger.info(
         "[%s] Playlist RAM e load hoyeche ('%s' theke), %d ta video ache.",
         stream_name, playlist_env, len(playlist),
     )
 
     proc = build_ffmpeg_process(rtmp_url)
-    logging.info("[%s] ffmpeg (pid=%s) start hoyeche, SRS e connect hocche...", stream_name, proc.pid)
+    logger.info("[%s] ffmpeg (pid=%s) start hoyeche, SRS e connect hocche...", stream_name, proc.pid)
 
     try:
         while not _shutdown_requested:
@@ -363,13 +367,13 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
 
                 segments = get_segment_urls(video_url)
                 if not segments:
-                    logging.error(
+                    logger.error(
                         "[%s] Segment list khali/fail hoyeche, skip kora hocche: %s (%s)",
                         stream_name, video_title, video_url,
                     )
                     continue
 
-                logging.info(
+                logger.info(
                     "[%s] Push hocche: %s (%d segments) -- %s",
                     stream_name, video_title, len(segments), video_url,
                 )
@@ -380,10 +384,10 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                     try:
                         ok = stream_segment_to_ffmpeg(seg_url, proc, stream_name)
                         if not ok:
-                            logging.warning("[%s] Segment permanently skip: %s", stream_name, seg_url)
+                            logger.warning("[%s] Segment permanently skip: %s", stream_name, seg_url)
                     except (BrokenPipeError, StuckPipeError) as e:
                         reason = "broken pipe" if isinstance(e, BrokenPipeError) else "stuck/stalled (write timeout)"
-                        logging.error(
+                        logger.error(
                             "[%s] ffmpeg process mara geche/atke geche (%s), restart hocche...",
                             stream_name, reason,
                         )
@@ -403,16 +407,16 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
 
                         tail = getattr(proc, "_stderr_tail", None)
                         if tail:
-                            logging.warning("[%s] ffmpeg last error:\n%s", stream_name, "\n".join(tail))
+                            logger.warning("[%s] ffmpeg last error:\n%s", stream_name, "\n".join(tail))
 
                         time.sleep(FFMPEG_RESTART_DELAY)
                         proc = build_ffmpeg_process(rtmp_url)
-                        logging.info("[%s] ffmpeg restart hoyeche (pid=%s)", stream_name, proc.pid)
+                        logger.info("[%s] ffmpeg restart hoyeche (pid=%s)", stream_name, proc.pid)
 
-            logging.info("[%s] Puro playlist ek round shesh, abar shuru hocche (loop).", stream_name)
+            logger.info("[%s] Puro playlist ek round shesh, abar shuru hocche (loop).", stream_name)
 
     finally:
-        logging.info("[%s] Bondho hocche, ffmpeg cleanup hocche...", stream_name)
+        logger.info("[%s] Bondho hocche, ffmpeg cleanup hocche...", stream_name)
         try:
             proc.stdin.close()
         except Exception:
@@ -422,7 +426,7 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
-        logging.info("[%s] Worker shesh.", stream_name)
+        logger.info("[%s] Worker shesh.", stream_name)
 
 
 def main():
@@ -445,19 +449,12 @@ def main():
     parser.add_argument("--log-file", default=None, help="Log file path (na dile stdout e log hobe)")
     args = parser.parse_args()
 
-    handlers = [logging.StreamHandler(sys.stdout)]
-    if args.log_file:
-        handlers.append(logging.FileHandler(args.log_file))
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=handlers,
-    )
-
-    # .env file age load kori, jate STREAM_PLAYLIST/RTMP_URL/STREAM_NAME shob
-    # environment e chole ashe -- CLI diye dile shetai priority pabe.
+    # .env file age load kori, jate STREAM_PLAYLIST/RTMP_URL/STREAM_NAME/STREAM_ID
+    # shob environment e chole ashe -- CLI diye dile shetai priority pabe.
     load_env_file(args.env_file)
+
+    setup_logging("stream_worker", log_file=args.log_file)
+    set_stream_id("stream_worker", os.environ.get("STREAM_ID", "-"))
 
     rtmp_url = args.rtmp_url or os.environ.get("RTMP_URL")
     stream_name = args.stream_name or os.environ.get("STREAM_NAME")

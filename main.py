@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-run_all.py
+main.py
 
 Node-Media-Server, stream_worker_stdin.py, r push_relay.py -- tin-ta
 alada terminal e chalanor poriborte, ekta single command diye ekshathe
@@ -16,15 +16,18 @@ Order:
     5. push_relay.py start hoy (NMS theke pull kore YouTube/Facebook e push)
 
 Usage:
-    python3 run_all.py
+    python3 main.py
 
 Config (.env file theke, ba environment variable diye override):
-    NMS_DIR=node-media-server              # node-media-server.js jei subfolder e ache (relative, run_all.py er tulonay)
+    NMS_DIR=node-media-server              # node-media-server.js jei subfolder e ache (relative, main.py er tulonay)
     NMS_SCRIPT=node-media-server.js        # Node-Media-Server entry file naam
     NMS_STARTUP_WAIT=8                     # NMS start howar por koto sec wait korbe
     WORKER_STARTUP_WAIT=5                  # worker start howar por koto sec wait korbe push_relay chalur age
     WORKER_LOG=stream_01.log               # stream_worker_stdin.py er log file naam
     PUSH_RELAY_LOG=push_relay.log          # push_relay er log file naam
+    RUN_ALL_LOG=run_all.log                # main.py nijer log file naam
+    STREAM_ID=stream_01                    # proti log line e "[stream=...]" hisebe bosbe
+    DEBUG=false                            # true dile verbose (DEBUG level) log dekhabe
 
 Ctrl+C (SIGINT) dile shob process (NMS + worker + push_relay) gracefully terminate hobe.
 """
@@ -36,6 +39,10 @@ import sys
 import threading
 import time
 from pathlib import Path
+
+from logging_setup import setup_logging, set_stream_id
+
+logger = setup_logging("run_all")  # log_file/stream_id main() theke set hobe
 
 _shutdown_requested = False
 _children: list[subprocess.Popen] = []
@@ -49,7 +56,7 @@ def load_env_file(env_file_path: str) -> None:
     """
     path = Path(env_file_path)
     if not path.exists():
-        print(f"[run_all] .env file paoya jayni ({env_file_path}), shudhu shell environment use hobe.", flush=True)
+        logger.info(f"[run_all] .env file paoya jayni ({env_file_path}), shudhu shell environment use hobe.")
         return
 
     with path.open("r", encoding="utf-8") as f:
@@ -69,12 +76,12 @@ def load_env_file(env_file_path: str) -> None:
 
             os.environ.setdefault(key, value)
 
-    print(f"[run_all] .env file theke variables load kora hoyeche: {env_file_path}", flush=True)
+    logger.info(f"[run_all] .env file theke variables load kora hoyeche: {env_file_path}")
 
 
 def handle_signal(signum, frame):
     global _shutdown_requested
-    print(f"[run_all] Shutdown signal ({signum}) peyechi, shob process bondho hocche...", flush=True)
+    logger.info(f"[run_all] Shutdown signal ({signum}) peyechi, shob process bondho hocche...")
     _shutdown_requested = True
 
 
@@ -86,13 +93,13 @@ def stream_output(proc: subprocess.Popen, prefix: str) -> None:
                 break
             line = raw_line.decode("utf-8", errors="ignore").rstrip()
             if line:
-                print(f"[{prefix}] {line}", flush=True)
+                logger.info(f"[{prefix}] {line}")
     except Exception:
         pass
 
 
 def start_process(cmd: list[str], prefix: str, cwd: str = None) -> subprocess.Popen:
-    print(f"[run_all] Starting {prefix}: {' '.join(cmd)}", flush=True)
+    logger.info(f"[run_all] Starting {prefix}: {' '.join(cmd)}")
     proc = subprocess.Popen(
         cmd,
         cwd=cwd,
@@ -129,6 +136,9 @@ def main():
 
     load_env_file(str(here / ".env"))
 
+    setup_logging("run_all", log_file=os.environ.get("RUN_ALL_LOG", "run_all.log"))
+    set_stream_id("run_all", os.environ.get("STREAM_ID", "-"))
+
     nms_dir_rel = os.environ.get("NMS_DIR", ".")   # node-media-server.js jei subfolder e ache
     nms_script = os.environ.get("NMS_SCRIPT", "node-media-server.js")
     nms_dir = (here / nms_dir_rel).resolve()
@@ -146,11 +156,11 @@ def main():
 
     # 2) NMS port bind howar jonno wait (fixed delay -- simple r reliable,
     #    kono health-check API depend kora lagbe na)
-    print(f"[run_all] NMS start hocche, {startup_wait}s wait kora hocche...", flush=True)
+    logger.info(f"[run_all] NMS start hocche, {startup_wait}s wait kora hocche...")
     waited = 0.0
     while waited < startup_wait and not _shutdown_requested:
         if nms_proc.poll() is not None:
-            print("[run_all] NMS process nijei exit kore geche startup wait er modhye -- thamano hocche.", flush=True)
+            logger.info("[run_all] NMS process nijei exit kore geche startup wait er modhye -- thamano hocche.")
             terminate_all()
             sys.exit(1)
         time.sleep(0.5)
@@ -170,11 +180,11 @@ def main():
     # 4) Worker-ke kichu shomoy dei jate first segment(s) publish hoye NMS e
     #    pouche jay, noyle push_relay-er ffmpeg khali stream e connect kore
     #    kono data na peye bar bar disconnect/reconnect korte thakbe.
-    print(f"[run_all] Worker start hocche, {worker_startup_wait}s wait kora hocche...", flush=True)
+    logger.info(f"[run_all] Worker start hocche, {worker_startup_wait}s wait kora hocche...")
     waited = 0.0
     while waited < worker_startup_wait and not _shutdown_requested:
         if worker_proc.poll() is not None:
-            print("[run_all] Worker process nijei exit kore geche startup wait er modhye -- thamano hocche.", flush=True)
+            logger.info("[run_all] Worker process nijei exit kore geche startup wait er modhye -- thamano hocche.")
             terminate_all()
             sys.exit(1)
         time.sleep(0.5)
@@ -195,18 +205,18 @@ def main():
     try:
         while not _shutdown_requested:
             if nms_proc.poll() is not None:
-                print("[run_all] NMS process exit kore geche, shob bondho kora hocche...", flush=True)
+                logger.info("[run_all] NMS process exit kore geche, shob bondho kora hocche...")
                 break
             if worker_proc.poll() is not None:
-                print("[run_all] Worker process exit kore geche, shob bondho kora hocche...", flush=True)
+                logger.info("[run_all] Worker process exit kore geche, shob bondho kora hocche...")
                 break
             if push_relay_proc.poll() is not None:
-                print("[run_all] push_relay process exit kore geche, shob bondho kora hocche...", flush=True)
+                logger.info("[run_all] push_relay process exit kore geche, shob bondho kora hocche...")
                 break
             time.sleep(1)
     finally:
         terminate_all()
-        print("[run_all] Shesh.", flush=True)
+        logger.info("[run_all] Shesh.")
 
 
 if __name__ == "__main__":
