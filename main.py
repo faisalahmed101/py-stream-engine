@@ -101,7 +101,7 @@ def load_env_file(env_file_path: str) -> None:
     """
     path = Path(env_file_path)
     if not path.exists():
-        logger.info(f".env file paoya jayni ({env_file_path}), shudhu shell environment use hobe.")
+        logger.info(f".env file not found ({env_file_path}), using shell environment only.")
         return
 
     with path.open("r", encoding="utf-8") as f:
@@ -121,12 +121,12 @@ def load_env_file(env_file_path: str) -> None:
 
             os.environ.setdefault(key, value)
 
-    logger.info(f".env file theke variables load kora hoyeche: {env_file_path}")
+    logger.info(f"Loaded environment variables from: {env_file_path}")
 
 
 def handle_signal(signum, frame):
     global _shutdown_requested
-    logger.info(f"Shutdown signal ({signum}) peyechi, shob process bondho hocche...")
+    logger.info(f"Received shutdown signal ({signum}), stopping all processes...")
     _shutdown_requested = True
 
 
@@ -250,8 +250,8 @@ class ManagedProcess:
             return False
 
         logger.warning(
-            f"[{self.name}] {timeout}s er modhye readiness marker paoya jayni, "
-            f"tobuo process beche ache tai fallback e egiye jacchi."
+            f"[{self.name}] No readiness marker seen within {timeout}s, "
+            f"but process is still alive -- proceeding anyway (fallback)."
         )
         return True
 
@@ -263,7 +263,7 @@ class ManagedProcess:
         )
         logger.warning(
             f"[{self.name}] consecutive failure #{self.consecutive_failures}, "
-            f"{delay:.1f}s por restart kora hobe..."
+            f"restarting in {delay:.1f}s..."
         )
         waited = 0.0
         while waited < delay and not _shutdown_requested:
@@ -350,14 +350,14 @@ def main():
         nms.start()
         if not nms.is_alive():
             return False
-        logger.info(f"[run_all] NMS port {nms_host}:{nms_port} bind howar jonno wait kora hocche (max {nms_ready_timeout}s)...")
+        logger.info(f"[run_all] Waiting for NMS port {nms_host}:{nms_port} to bind (max {nms_ready_timeout}s)...")
         ready = wait_for_port(nms_host, nms_port, nms_ready_timeout, proc=nms.proc)
         if not nms.is_alive():
             return False
         if ready:
-            logger.info("[run_all] NMS port ready, egiye jacchi.")
+            logger.info("[run_all] NMS port ready, proceeding.")
         else:
-            logger.warning(f"[run_all] {nms_ready_timeout}s e-o NMS port ready hoyni, process beche thakay fallback e egiye jacchi.")
+            logger.warning(f"[run_all] NMS port not ready after {nms_ready_timeout}s, process is still alive -- proceeding anyway (fallback).")
         return True
 
     def start_and_wait_worker() -> bool:
@@ -378,7 +378,7 @@ def main():
     for name in order:
         while not _shutdown_requested:
             if starters[name]():
-                logger.info(f"[run_all] {name} shuru hoyeche.")
+                logger.info(f"[run_all] {name} started successfully.")
                 processes[name].note_success()
                 break
             processes[name].note_failure_and_backoff()
@@ -398,25 +398,25 @@ def main():
                 p = processes[name]
                 if not p.is_alive():
                     ret = p.proc.poll() if p.proc else None
-                    logger.warning(f"[run_all] {name} process exit kore geche (code={ret}), restart hocche...")
+                    logger.warning(f"[run_all] {name} process exited (code={ret}), restarting...")
                     p.note_failure_and_backoff()
                     if _shutdown_requested:
                         break
                     if starters[name]():
                         p.note_success()
-                        logger.info(f"[run_all] {name} shofolvabe restart hoyeche.")
+                        logger.info(f"[run_all] {name} restarted successfully.")
                     else:
-                        logger.warning(f"[run_all] {name} restart attempt e-o crash korlo, abar chesta kora hobe.")
+                        logger.warning(f"[run_all] {name} restart attempt also crashed, will retry again.")
             time.sleep(0.5)
     finally:
-        logger.info("[run_all] Bondho hocche, shob process terminate kora hocche...")
+        logger.info("[run_all] Shutting down, terminating all processes...")
         for p in processes.values():
             p.stop()
         deadline = time.time() + 10
         for p in processes.values():
             remaining = max(0, deadline - time.time())
             p.wait_exit(remaining)
-        logger.info("[run_all] Shesh.")
+        logger.info("[run_all] Done.")
 
 
 if __name__ == "__main__":

@@ -45,11 +45,31 @@ Env vars:
 
 import logging
 import os
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
 _LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(name)s] [stream=%(stream_id)s] %(message)s"
+
+
+def _safe_console_stream():
+    """
+    Defensive helper: even though log messages are now written in plain
+    English/ASCII, this guards against any future stray non-ASCII text
+    (e.g. a video title, an external API error string) crashing the
+    logger with UnicodeEncodeError on a non-UTF-8 console (this is the
+    common cause of "--- Logging error ---" spam on Windows cmd/PowerShell
+    with legacy codepages). Safe no-op on consoles that already support
+    UTF-8 (e.g. Ubuntu/production).
+    """
+    stream = sys.stdout
+    try:
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except Exception:
+        pass
+    return stream
 
 
 class _StreamIdFilter(logging.Filter):
@@ -138,7 +158,7 @@ def setup_logging(
 
     formatter = logging.Formatter(_LOG_FORMAT)
 
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(_safe_console_stream())
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 

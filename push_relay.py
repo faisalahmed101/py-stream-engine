@@ -38,7 +38,9 @@ from logging_setup import setup_logging, set_stream_id
 
 logger = setup_logging("push_relay")  # log_file/stream_id main() theke set hobe
 
-RESTART_DELAY = 5  # seconds, ffmpeg crash korle koto sec por retry hobe
+RESTART_DELAY = 5          # seconds -- base delay before the first retry after a crash
+RESTART_BACKOFF_MAX = 30   # seconds -- delay never grows past this, so recovery stays fast
+STABLE_RUN_SECONDS = 20    # if ffmpeg ran at least this long, treat the next crash as fresh (reset backoff)
 STDERR_TAIL_LINES = 20
 
 _shutdown_requested = False
@@ -47,7 +49,7 @@ _reload_requested = False
 
 def handle_signal(signum, frame):
     global _shutdown_requested
-    logger.info("Shutdown signal (%s) peyechi, bondho hocche...", signum)
+    logger.info("Received shutdown signal (%s), stopping...", signum)
     _shutdown_requested = True
 
 
@@ -59,7 +61,7 @@ def handle_reload(signum, frame):
     lagbe na -- Windows-e change korte hole script restart korte hobe.
     """
     global _reload_requested
-    logger.info("Reload signal peyechi, destination list refresh hobe...")
+    logger.info("Received reload signal, destination list will be refreshed...")
     _reload_requested = True
 
 
@@ -89,7 +91,7 @@ def _strip_inline_comment(value: str) -> str:
 def load_env_file(env_file_path: str) -> None:
     path = Path(env_file_path)
     if not path.exists():
-        logger.info(".env file paoya jayni (%s), shudhu shell environment use hobe.", env_file_path)
+        logger.info(".env file not found (%s), using shell environment only.", env_file_path)
         return
 
     with path.open("r", encoding="utf-8") as f:
@@ -98,7 +100,7 @@ def load_env_file(env_file_path: str) -> None:
             if not line or line.startswith("#"):
                 continue
             if "=" not in line:
-                logger.warning(".env file er %d nong line e '=' nai, skip kora hocche: %s", line_num, line)
+                logger.warning(".env file line %d has no '=', skipping: %s", line_num, line)
                 continue
 
             key, _, value = line.partition("=")
@@ -108,23 +110,23 @@ def load_env_file(env_file_path: str) -> None:
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
                 value = value[1:-1]
 
-            os.environ[key] = value  # relay script e re-read korte hobe, tai override kori
+            os.environ[key] = value  # this script must re-read on reload, so overriding is intentional
 
-    logger.info(".env file theke variables (re)load kora hoyeche: %s", env_file_path)
+    logger.info("(Re)loaded environment variables from: %s", env_file_path)
 
 
 def load_destinations(env_var: str) -> list[dict]:
     raw = os.environ.get(env_var)
     if not raw:
-        raise ValueError(f"Environment variable '{env_var}' pawa jayni ba khali.")
+        raise ValueError(f"Environment variable '{env_var}' not found or empty.")
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ValueError(f"'{env_var}' er value valid JSON na: {e}")
+        raise ValueError(f"'{env_var}' value is not valid JSON: {e}")
 
     if not isinstance(data, list) or not data:
-        raise ValueError(f"'{env_var}' ekta non-empty JSON list hote hobe.")
+        raise ValueError(f"'{env_var}' must be a non-empty JSON list.")
 
     destinations = []
     for i, item in enumerate(data):
@@ -133,11 +135,11 @@ def load_destinations(env_var: str) -> list[dict]:
         elif isinstance(item, dict):
             url = item.get("url")
             if not url:
-                raise ValueError(f"Destination item {i} e 'url' key nai: {item}")
+                raise ValueError(f"Destination item {i} is missing the 'url' key: {item}")
             name = item.get("name") or f"dest_{i + 1}"
             destinations.append({"name": name, "url": url})
         else:
-            raise ValueError(f"Destination item {i} er format thik na: {item}")
+            raise ValueError(f"Destination item {i} has an invalid format: {item}")
 
     return destinations
 
@@ -145,10 +147,19 @@ def load_destinations(env_var: str) -> list[dict]:
 def build_tee_output(destinations: list[dict]) -> str:
     """
     ffmpeg -f tee er jonno "[f=flv]url1|[f=flv]url2|..." format banay.
-    Prottekta destination-e alada-alada [f=flv] wrap thake, jate ekta
-    destination fail korleo (tee-er default behavior) onnogulo cholte thake.
+
+    IMPORTANT: tee muxer-er default "onfail" policy hocche "abort" --
+    mane ekta destination (e.g. Facebook) fail/disconnect korle, ffmpeg
+    default e PURO process abort kore fele, baki shob destination
+    (e.g. YouTube) o shathe shathe bondho hoye jay. Eta ekta multi-destination
+    relay-er jonno khub kharap behavior (ekta platform-er problem-e shob
+    platform-e push bondho hoye jaoa uchit na).
+
+    Tai proti destination e explicitly `onfail=ignore` set kora hocche,
+    jate ekta destination fail korleo (connection drop, timeout, etc)
+    baki destination gulo te push cholte thake unaffected vabe.
     """
-    parts = [f"[f=flv]{d['url']}" for d in destinations]
+    parts = [f"[f=flv:onfail=ignore]{d['url']}" for d in destinations]
     return "|".join(parts)
 
 
@@ -190,6 +201,7 @@ def build_ffmpeg_process(source_url: str, destinations: list[dict]) -> subproces
         stderr=subprocess.PIPE,
     )
     proc._stderr_tail = []
+    proc._started_at = time.time()  # used by run_relay() to decide backoff vs. reset
     t = threading.Thread(target=drain_stderr, args=(proc, proc._stderr_tail), daemon=True)
     t.start()
     return proc
@@ -202,16 +214,18 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
     set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
     source_url = os.environ.get(source_env)
     if not source_url:
-        raise ValueError(f"'{source_env}' set kora nai (.env file check koro).")
+        raise ValueError(f"'{source_env}' is not set (check the .env file).")
 
     destinations = load_destinations(dest_env)
     logger.info(
-        "Relay shuru hocche: source=%s -> %d destination(s): %s",
+        "Starting relay: source=%s -> %d destination(s): %s",
         source_url, len(destinations), ", ".join(d["name"] for d in destinations),
     )
 
     proc = build_ffmpeg_process(source_url, destinations)
-    logger.info("ffmpeg (pid=%s) push shuru hoyeche.", proc.pid)
+    logger.info("ffmpeg (pid=%s) push started.", proc.pid)
+
+    consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
 
     try:
         while not _shutdown_requested:
@@ -219,13 +233,13 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
 
             if _reload_requested:
                 _reload_requested = False
-                logger.info("Reload: .env abar load kore, ffmpeg restart hocche notun destination list diye...")
+                logger.info("Reload: re-reading .env and restarting ffmpeg with the new destination list...")
                 load_env_file(env_file)
                 set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
                 try:
                     destinations = load_destinations(dest_env)
                 except ValueError as e:
-                    logger.error("Notun destination list invalid, purono list-e continue kora hocche: %s", e)
+                    logger.error("New destination list is invalid, continuing with the previous list: %s", e)
                 else:
                     try:
                         proc.terminate()
@@ -233,8 +247,9 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                     except Exception:
                         proc.kill()
                     proc = build_ffmpeg_process(source_url, destinations)
+                    consecutive_crashes = 0  # manual reload isn't a crash, reset backoff
                     logger.info(
-                        "ffmpeg (pid=%s) restart hoyeche, %d destination(s): %s",
+                        "ffmpeg (pid=%s) restarted with %d destination(s): %s",
                         proc.pid, len(destinations), ", ".join(d["name"] for d in destinations),
                     )
                 continue
@@ -246,19 +261,35 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                 else:
                     logger.warning("ffmpeg exited (code=%s)", ret)
 
-                time.sleep(RESTART_DELAY)
-                # crash-restart e .env freshly re-read kori, tai edit kore
-                # rakha notun destination list ei muhurte-e apply hoye jabe
+                # Stream never permanently stops: we always retry, just with a
+                # progressively longer (capped) delay if ffmpeg keeps crashing
+                # right away -- avoids hammering the source/destinations in a
+                # tight loop, while a stable long-running process resets the
+                # delay back to the base value.
+                ran_for = time.time() - getattr(proc, "_started_at", 0)
+                if ran_for < STABLE_RUN_SECONDS:
+                    consecutive_crashes += 1
+                else:
+                    consecutive_crashes = 0
+                delay = min(RESTART_DELAY * (2 ** consecutive_crashes), RESTART_BACKOFF_MAX)
+                logger.warning(
+                    "Restarting ffmpeg in %.1fs (consecutive quick failures: %d)...",
+                    delay, consecutive_crashes,
+                )
+                time.sleep(delay)
+
+                # .env is freshly re-read on every crash-restart, so an edited
+                # destination list takes effect immediately at this point.
                 load_env_file(env_file)
                 set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
                 destinations = load_destinations(dest_env)
                 proc = build_ffmpeg_process(source_url, destinations)
-                logger.info("ffmpeg restart hoyeche (pid=%s)", proc.pid)
+                logger.info("ffmpeg restarted (pid=%s)", proc.pid)
                 continue
 
             time.sleep(1)
     finally:
-        logger.info("Bondho hocche, ffmpeg cleanup hocche...")
+        logger.info("Shutting down, cleaning up ffmpeg...")
         try:
             proc.terminate()
             proc.wait(timeout=10)
@@ -267,7 +298,7 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                 proc.kill()
             except Exception:
                 pass
-        logger.info("Relay shesh.")
+        logger.info("Relay stopped.")
 
 
 def main():

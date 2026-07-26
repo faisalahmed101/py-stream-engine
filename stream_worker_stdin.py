@@ -35,6 +35,7 @@ import json
 import logging
 import os
 import queue
+import select
 import signal
 import subprocess
 import sys
@@ -46,23 +47,29 @@ from urllib.parse import urljoin
 
 from logging_setup import setup_logging, set_stream_id
 
-logger = setup_logging("stream_worker")  # log_file/stream_id main() theke set hobe
+logger = setup_logging("stream_worker")  # log_file/stream_id are set from main()
+
+_IS_POSIX = os.name == "posix"
+if _IS_POSIX:
+    import fcntl
 
 # ---------- Config ----------
 SEGMENT_FETCH_RETRIES = 3
-SEGMENT_RETRY_BACKOFF_BASE = 2      # second
+SEGMENT_RETRY_BACKOFF_BASE = 2      # seconds
 M3U8_FETCH_RETRIES = 3
-CHUNK_SIZE = 64 * 1024              # 64KB kore stream kora hobe
+CHUNK_SIZE = 64 * 1024              # stream in 64KB chunks
 FFMPEG_LOGLEVEL = "warning"
-FFMPEG_RESTART_DELAY = 3            # ffmpeg crash korle koto sec por restart hobe
-STDIN_WRITE_TIMEOUT = 10            # ffmpeg stdin block thakle koto sec por "stuck" dhora hobe
+FFMPEG_RESTART_DELAY = 3            # seconds -- base delay before the first retry after a crash
+FFMPEG_RESTART_BACKOFF_MAX = 30     # seconds -- delay never grows past this, so recovery stays fast
+FFMPEG_STABLE_RUN_SECONDS = 20      # if ffmpeg ran at least this long, treat the next crash as fresh (reset backoff)
+STDIN_WRITE_TIMEOUT = 10            # seconds before a blocked ffmpeg stdin write is considered "stuck"
 
 _shutdown_requested = False
 
 
 class StuckPipeError(Exception):
-    """ffmpeg stdin e write timeout hoyeche -- process stuck/stalled (e.g. HTTP
-    -listen mode e output side e kono client pull korche na)."""
+    """ffmpeg stdin write timed out -- the process is stuck/stalled (e.g. HTTP
+    -listen mode with no client pulling on the output side)."""
     pass
 
 
@@ -94,7 +101,7 @@ def drain_stderr(proc: subprocess.Popen, stream_name: str) -> None:
 
 def handle_signal(signum, frame):
     global _shutdown_requested
-    logger.info("Shutdown signal (%s) peyechi, current segment shesh hole বন্ধ হবে...", signum)
+    logger.info("Received shutdown signal (%s), will stop after the current segment finishes...", signum)
     _shutdown_requested = True
 
 
@@ -130,7 +137,7 @@ def load_env_file(env_file_path: str) -> None:
     """
     path = Path(env_file_path)
     if not path.exists():
-        logger.info(".env file paoya jayni (%s), শুধু shell environment use hobe.", env_file_path)
+        logger.info(".env file not found (%s), using shell environment only.", env_file_path)
         return
 
     with path.open("r", encoding="utf-8") as f:
@@ -139,7 +146,7 @@ def load_env_file(env_file_path: str) -> None:
             if not line or line.startswith("#"):
                 continue
             if "=" not in line:
-                logger.warning(".env file er %d nong line e '=' nai, skip kora hocche: %s", line_num, line)
+                logger.warning(".env file line %d has no '=', skipping: %s", line_num, line)
                 continue
 
             key, _, value = line.partition("=")
@@ -152,7 +159,7 @@ def load_env_file(env_file_path: str) -> None:
 
             os.environ.setdefault(key, value)
 
-    logger.info(".env file theke variables load kora hoyeche: %s", env_file_path)
+    logger.info("Loaded environment variables from: %s", env_file_path)
 
 
 def load_playlist_from_env(env_var: str) -> list[dict]:
@@ -170,15 +177,15 @@ def load_playlist_from_env(env_var: str) -> list[dict]:
     """
     raw = os.environ.get(env_var)
     if not raw:
-        raise ValueError(f"Environment variable '{env_var}' pawa jayni ba khali.")
+        raise ValueError(f"Environment variable '{env_var}' not found or empty.")
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ValueError(f"'{env_var}' er value valid JSON na: {e}")
+        raise ValueError(f"'{env_var}' value is not valid JSON: {e}")
 
     if not isinstance(data, list) or not data:
-        raise ValueError(f"'{env_var}' ekta non-empty JSON list hote hobe.")
+        raise ValueError(f"'{env_var}' must be a non-empty JSON list.")
 
     playlist = []
     for i, item in enumerate(data):
@@ -187,11 +194,11 @@ def load_playlist_from_env(env_var: str) -> list[dict]:
         elif isinstance(item, dict):
             url = item.get("url")
             if not url:
-                raise ValueError(f"Playlist item {i} e 'url' key nai: {item}")
+                raise ValueError(f"Playlist item {i} is missing the 'url' key: {item}")
             title = item.get("title") or f"video_{i + 1}"
             playlist.append({"title": title, "url": url})
         else:
-            raise ValueError(f"Playlist item {i} er format thik na (string ba object hote hobe): {item}")
+            raise ValueError(f"Playlist item {i} has an invalid format (must be string or object): {item}")
 
     return playlist
 
@@ -203,7 +210,7 @@ def fetch_bytes(url: str, timeout: int = 15) -> bytes:
 
 
 def get_segment_urls(m3u8_url: str) -> list[str]:
-    """m3u8 playlist fetch kore segment (.ts) URL gulo return kore."""
+    """Fetch the m3u8 playlist and return the segment (.ts) URLs."""
     data = None
     for attempt in range(M3U8_FETCH_RETRIES):
         try:
@@ -211,7 +218,7 @@ def get_segment_urls(m3u8_url: str) -> list[str]:
             break
         except Exception as e:
             logger.warning(
-                "m3u8 fetch fail (%s) attempt %d/%d: %s",
+                "m3u8 fetch failed (%s) attempt %d/%d: %s",
                 m3u8_url, attempt + 1, M3U8_FETCH_RETRIES, e,
             )
             time.sleep(2 * (attempt + 1))
@@ -258,16 +265,71 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
 
     # stderr pipe buffer full hoye deadlock jeno na hoy, tai continuously drain
     proc._stderr_tail = []
+    proc._started_at = time.time()  # used by run_stream() to decide backoff vs. reset
     t = threading.Thread(target=drain_stderr, args=(proc, "ffmpeg"), daemon=True)
     t.start()
 
     return proc
 
 
+def _ensure_nonblocking(proc: subprocess.Popen) -> None:
+    """
+    POSIX only. Puts the ffmpeg stdin pipe into non-blocking mode once,
+    so writes can be paired with select() for a real OS-level timeout
+    instead of a background thread.
+    """
+    if getattr(proc, "_stdin_nonblocking", False):
+        return
+    fd = proc.stdin.fileno()
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+    proc._stdin_nonblocking = True
+
+
+def _write_posix(proc: subprocess.Popen, data: bytes, timeout: float) -> None:
+    """
+    Production path (Linux/Ubuntu). No background thread is used here,
+    so there is nothing to leak: select() waits (with a real timeout)
+    for the stdin pipe to become writable, then a non-blocking os.write()
+    pushes the bytes. If the pipe never becomes writable within `timeout`
+    (ffmpeg stuck/stalled downstream), StuckPipeError is raised so the
+    caller can restart ffmpeg -- exactly like the old thread-based
+    behavior, but without ever leaving a stuck thread behind.
+    """
+    _ensure_nonblocking(proc)
+    fd = proc.stdin.fileno()
+    view = memoryview(data)
+    deadline = time.time() + timeout
+
+    while view:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise StuckPipeError(
+                f"ffmpeg stdin write did not complete within {timeout}s -- process appears stuck"
+            )
+        try:
+            _, writable, _ = select.select([], [fd], [], remaining)
+        except (OSError, ValueError):
+            raise BrokenPipeError("ffmpeg stdin fd is no longer valid (process has exited)")
+
+        if not writable:
+            raise StuckPipeError(
+                f"ffmpeg stdin write did not complete within {timeout}s -- process appears stuck"
+            )
+
+        try:
+            n = os.write(fd, view.tobytes())
+        except BlockingIOError:
+            continue
+        except BrokenPipeError:
+            raise
+        view = view[n:]
+
+
 def _get_writer_thread(proc: subprocess.Popen) -> "_StdinWriter":
     """
-    Proti ffmpeg proc-er jonno ekta persistent background writer thread
-    lazily create kore proc object e cache kore rakhe (proc._writer).
+    Windows-only dev fallback: lazily creates a persistent background
+    writer thread per ffmpeg proc (cached on proc._writer).
     """
     writer = getattr(proc, "_writer", None)
     if writer is None:
@@ -278,20 +340,20 @@ def _get_writer_thread(proc: subprocess.Popen) -> "_StdinWriter":
 
 class _StdinWriter:
     """
-    Cross-platform (Windows shoho) stuck-pipe detection.
+    Windows-only dev fallback for stuck-pipe detection.
 
-    fcntl/select Unix-only (Windows-e fcntl module e exist kore na), tai
-    non-blocking fd trick er poriborte, ekta dedicated background thread
-    diye actual blocking proc.stdin.write() call kora hoy. Main thread
-    shudhu ei thread er result-er jonno ekta timeout shoho wait kore.
+    fcntl/select-based non-blocking writes are POSIX-only, so on Windows
+    a dedicated background thread performs the actual blocking
+    proc.stdin.write() call, and the main thread waits on the result with
+    a timeout.
 
-    Jodi ffmpeg output side e stuck hoye jay (kono client pull korche na,
-    ba network/SRS stuck), tahole write() call background thread e
-    forever block hoye thakte pare -- kintu main thread timeout er por
-    egiye jay r StuckPipeError raise kore, caller shetake BrokenPipeError
-    er moto treat kore ffmpeg restart korte pare. (Background thread ta
-    leak hoy shei case e, kintu jehetu proc nijei kill/restart hocche,
-    shetate kono baastob somossha hoy na.)
+    If ffmpeg gets stuck downstream (no client pulling, network/SRS
+    stalled), the write() call can block in the background thread
+    forever -- but the main thread times out and raises StuckPipeError,
+    which the caller treats like a BrokenPipeError to restart ffmpeg.
+    (The background thread leaks in that case; harmless in practice
+    since the proc itself is being killed/restarted, but on production
+    -- Linux -- this class is not used at all, so no leak is possible there.)
     """
 
     def __init__(self, proc: subprocess.Popen):
@@ -318,7 +380,7 @@ class _StdinWriter:
             result = self._out_q.get(timeout=timeout)
         except queue.Empty:
             raise StuckPipeError(
-                f"ffmpeg stdin write {timeout}s er modhye complete hoyni -- process atke gyeche"
+                f"ffmpeg stdin write did not complete within {timeout}s -- process appears stuck"
             )
         if isinstance(result, Exception):
             raise result
@@ -326,19 +388,23 @@ class _StdinWriter:
 
 def write_stdin_with_timeout(proc: subprocess.Popen, data: bytes, timeout: float = STDIN_WRITE_TIMEOUT) -> None:
     """
-    proc.stdin.write() shorashori call korle seta blocking -- ffmpeg jodi
-    output side e block hoye jay (jemon HTTP -listen mode e kono client
-    ar pull korche na, ba RTMP push mode e network/SRS stuck hoye geche),
-    tahole ffmpeg r stdin read korbe na, r ei write() call e Python
-    chirokal atke thakbe (silent freeze, kono exception/log chara).
+    A direct proc.stdin.write() call blocks -- if ffmpeg is stuck on the
+    output side (e.g. HTTP -listen mode with no client pulling, or RTMP
+    push mode with a stalled network/SRS), ffmpeg stops reading stdin and
+    this call would hang forever with no exception or log (a silent freeze).
 
-    Ei wrapper background writer thread diye actual write koriye, timeout
-    shoho result-er jonno wait kore (dekho _StdinWriter). Timeout hoye
-    gele StuckPipeError raise hoy, jate caller eta BrokenPipeError er moto
-    treat kore ffmpeg restart korte pare.
+    On production (Linux), this is handled with select()+non-blocking
+    os.write() and a real timeout -- no background thread involved, so
+    there is nothing to leak. On Windows (local dev only), a background
+    writer thread is used as a fallback since fcntl/select don't support
+    pipes there. Either way, StuckPipeError is raised on timeout so the
+    caller can treat it like a BrokenPipeError and restart ffmpeg.
     """
-    writer = _get_writer_thread(proc)
-    writer.write(data, timeout)
+    if _IS_POSIX:
+        _write_posix(proc, data, timeout)
+    else:
+        writer = _get_writer_thread(proc)
+        writer.write(data, timeout)
 
 
 def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: str) -> bool:
@@ -372,12 +438,14 @@ def stream_segment_to_ffmpeg(seg_url: str, proc: subprocess.Popen, stream_name: 
 def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
     playlist = load_playlist_from_env(playlist_env)
     logger.info(
-        "[%s] Playlist RAM e load hoyeche ('%s' theke), %d ta video ache.",
+        "[%s] Playlist loaded into memory (from '%s'), %d video(s).",
         stream_name, playlist_env, len(playlist),
     )
 
     proc = build_ffmpeg_process(rtmp_url)
-    logger.info("[%s] ffmpeg (pid=%s) start hoyeche, SRS e connect hocche...", stream_name, proc.pid)
+    logger.info("[%s] ffmpeg (pid=%s) started, connecting to SRS...", stream_name, proc.pid)
+
+    consecutive_crashes = 0  # tracks rapid repeat crashes to compute backoff; never stops retrying
 
     try:
         while not _shutdown_requested:
@@ -391,13 +459,13 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                 segments = get_segment_urls(video_url)
                 if not segments:
                     logger.error(
-                        "[%s] Segment list khali/fail hoyeche, skip kora hocche: %s (%s)",
+                        "[%s] Segment list empty/failed, skipping: %s (%s)",
                         stream_name, video_title, video_url,
                     )
                     continue
 
                 logger.info(
-                    "[%s] Push hocche: %s (%d segments) -- %s",
+                    "[%s] Pushing: %s (%d segments) -- %s",
                     stream_name, video_title, len(segments), video_url,
                 )
 
@@ -407,11 +475,11 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                     try:
                         ok = stream_segment_to_ffmpeg(seg_url, proc, stream_name)
                         if not ok:
-                            logger.warning("[%s] Segment permanently skip: %s", stream_name, seg_url)
+                            logger.warning("[%s] Segment permanently skipped: %s", stream_name, seg_url)
                     except (BrokenPipeError, StuckPipeError) as e:
                         reason = "broken pipe" if isinstance(e, BrokenPipeError) else "stuck/stalled (write timeout)"
                         logger.error(
-                            "[%s] ffmpeg process mara geche/atke geche (%s), restart hocche...",
+                            "[%s] ffmpeg process died/stuck (%s), restarting...",
                             stream_name, reason,
                         )
                         try:
@@ -432,14 +500,32 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
                         if tail:
                             logger.warning("[%s] ffmpeg last error:\n%s", stream_name, "\n".join(tail))
 
-                        time.sleep(FFMPEG_RESTART_DELAY)
+                        # Stream never permanently stops: we always retry, just with
+                        # a progressively longer (capped) delay if ffmpeg keeps
+                        # crashing right away -- avoids hammering SRS/network in a
+                        # tight loop, while a stable long-running process resets
+                        # the delay back to the base value.
+                        ran_for = time.time() - getattr(proc, "_started_at", 0)
+                        if ran_for < FFMPEG_STABLE_RUN_SECONDS:
+                            consecutive_crashes += 1
+                        else:
+                            consecutive_crashes = 0
+                        delay = min(
+                            FFMPEG_RESTART_DELAY * (2 ** consecutive_crashes),
+                            FFMPEG_RESTART_BACKOFF_MAX,
+                        )
+                        logger.warning(
+                            "[%s] Restarting ffmpeg in %.1fs (consecutive quick failures: %d)...",
+                            stream_name, delay, consecutive_crashes,
+                        )
+                        time.sleep(delay)
                         proc = build_ffmpeg_process(rtmp_url)
-                        logger.info("[%s] ffmpeg restart hoyeche (pid=%s)", stream_name, proc.pid)
+                        logger.info("[%s] ffmpeg restarted (pid=%s)", stream_name, proc.pid)
 
-            logger.info("[%s] Puro playlist ek round shesh, abar shuru hocche (loop).", stream_name)
+            logger.info("[%s] Finished one full playlist round, looping back to the start.", stream_name)
 
     finally:
-        logger.info("[%s] Bondho hocche, ffmpeg cleanup hocche...", stream_name)
+        logger.info("[%s] Shutting down, cleaning up ffmpeg...", stream_name)
         try:
             proc.stdin.close()
         except Exception:
@@ -449,7 +535,7 @@ def run_stream(playlist_env: str, rtmp_url: str, stream_name: str) -> None:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
-        logger.info("[%s] Worker shesh.", stream_name)
+        logger.info("[%s] Worker stopped.", stream_name)
 
 
 def main():
@@ -483,9 +569,9 @@ def main():
     stream_name = args.stream_name or os.environ.get("STREAM_NAME")
 
     if not rtmp_url:
-        parser.error("--rtmp-url dao othoba .env file e RTMP_URL set koro.")
+        parser.error("Provide --rtmp-url or set RTMP_URL in the .env file.")
     if not stream_name:
-        parser.error("--stream-name dao othoba .env file e STREAM_NAME set koro.")
+        parser.error("Provide --stream-name or set STREAM_NAME in the .env file.")
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
