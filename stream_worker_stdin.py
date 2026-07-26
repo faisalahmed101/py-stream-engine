@@ -77,10 +77,9 @@ from urllib.parse import urljoin
 
 from logging_setup import setup_logging, set_stream_id
 from supabase_client import (
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_RETRY_INTERVAL_SECONDS,
     SupabaseFetchError,
+    is_configured as supabase_is_configured,
     supabase_get,
     wait_for_supabase,
 )
@@ -314,7 +313,7 @@ def fetch_playlist_from_supabase(stream_id: str) -> list[dict]:
         SupabaseFetchError     -- transient problem (network blip,
                                   Supabase momentarily down, bad response).
     """
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    if not supabase_is_configured():
         raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set in the environment.")
 
     streams = supabase_get("streams", {"id": f"eq.{stream_id}", "select": "playlist_id"})
@@ -854,19 +853,20 @@ def main():
     # SUPABASE_SERVICE_ROLE_KEY shob environment e chole ashe -- CLI diye dile
     # shetai priority pabe.
     #
-    # NOTE: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY module-level e (file er
-    # upor dike) already ekbar os.environ.get() diye poRa hoyeche, ei
-    # load_env_file() call er AGE -- eta kaje lagbe jodi ei script main.py
-    # er child process hisebe run hoy (normal/production case), karon
-    # main.py nijer .env load kore already, r subprocess spawn korle child
-    # process shei loaded environment inherit kore -- tai module import
-    # howar shomoy-i shei value gulo already thake. Shudhu ei script eka
-    # eka (standalone, main.py chara) direct run korle ei .env file theke
-    # asha SUPABASE_* value gulo dhorte, environment variable hisebe
-    # shell e export kore rakho (e.g. `export SUPABASE_URL=...`), .env file
-    # e likhle na-o dhorte pare -- ei-i behavior existing STALL_TIMEOUT_SECONDS
-    # / STALL_WATCHDOG_ENABLED er shathe consistent (era-o age theke-i
-    # module-level e emon vabe poRa hoy).
+    # NOTE: supabase_client.py SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY LAZILY
+    # poRe (proti API call-er shomoy fresh os.environ.get(), import-er
+    # shomoy cache kore rakhe na) -- tai eikhane load_env_file() ei script
+    # er nijer `from supabase_client import ...` er AGE na PORE call hocche,
+    # shetatao kono somossha na. Ei script eka eka (standalone, main.py
+    # chara) direct run korleo .env file e SUPABASE_URL/
+    # SUPABASE_SERVICE_ROLE_KEY thakleই hobe, alada kore shell e export
+    # korte hobe na.
+    #
+    # STALL_TIMEOUT_SECONDS / STALL_WATCHDOG_ENABLED (upore, module-level e)
+    # holo alada case -- oigulo genuinely import-time e ekbar poRa hoy (env
+    # var value time e change hoy na, restart chara update hoy na), tai
+    # shegulo standalone run e shell export lagbei -- .env-e likhleo,
+    # module import-er AGE load_env_file() call na hole dhorbe na.
     load_env_file(args.env_file)
 
     setup_logging("stream_worker", log_file=args.log_file)

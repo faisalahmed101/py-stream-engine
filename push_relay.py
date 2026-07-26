@@ -483,9 +483,13 @@ def run_destination(dest: dict, source_url: str, stop_flag: threading.Event) -> 
         logger.info("[%s] Stopping, cleaning up ffmpeg...", name)
         if proc is not None:
             _terminate(proc)
+        # Note: whether this destination stopped because of a full
+        # shutdown or an individual reload-triggered stop, the resulting
+        # row status is the same ("ended") -- there's no distinct status
+        # for the two cases, so no conditional is needed here.
         update_destination_status(
             dest_id,
-            status="ended" if not _shutdown_requested and stop_flag.is_set() else "ended",
+            status="ended",
             ended_at=_now_iso(),
         )
         logger.info("[%s] Destination relay stopped.", name)
@@ -577,6 +581,13 @@ def run_relay(env_file: str, source_env: str) -> None:
                         logger.info("Reload: destination removed (id=%s), stopping its ffmpeg process...", dest_id)
                         _stop_destination(handles.pop(dest_id))
 
+                    # dest_id-er URL badle geche (e.g. stream_key updated) emon
+                    # kotogula restart hocche eta ekhaneই count kora hocche --
+                    # niche handles[dest_id] mutate hoye jaওয়ার AGE, karon mutate
+                    # hoye gele old-vs-new URL comparison ar kaje lagbe na
+                    # (handles[dest_id].dest already new_by_id[dest_id]-er shathe
+                    # match korbe, tai "changed" detect e always miss hoto).
+                    url_changed = 0
                     for dest_id in kept:
                         # url change hoye thakle (e.g. stream_key updated) restart lagbe,
                         # na hole running process ke uninterrupted rakha hocche.
@@ -586,6 +597,7 @@ def run_relay(env_file: str, source_env: str) -> None:
                             )
                             _stop_destination(handles.pop(dest_id))
                             handles[dest_id] = _start_destination(new_by_id[dest_id], source_url)
+                            url_changed += 1
 
                     for dest_id in added:
                         logger.info(
@@ -595,10 +607,8 @@ def run_relay(env_file: str, source_env: str) -> None:
                         handles[dest_id] = _start_destination(new_by_id[dest_id], source_url)
 
                     logger.info(
-                        "Reload complete: %d destination(s) running (%d added, %d removed, %d unchanged).",
-                        len(handles), len(added), len(removed), len(kept) - len(
-                            [d for d in kept if handles.get(d) and handles[d].dest.get("url") != new_by_id.get(d, {}).get("url")]
-                        ),
+                        "Reload complete: %d destination(s) running (%d added, %d removed, %d unchanged, %d restarted due to URL change).",
+                        len(handles), len(added), len(removed), len(kept) - url_changed, url_changed,
                     )
                 continue
 

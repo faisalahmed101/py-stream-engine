@@ -10,9 +10,14 @@ scripte almost identical copy hoyeche, ekhon ekhaneই centralize kora hocche).
 Stdlib urllib-only, kono extra pip dependency (supabase-py/postgrest-py)
 lagbe na.
 
-Env vars (proti script nijer .env theke load kore, tarpor ei module import
-hobar shomoy os.environ.get() diye poRe -- tai load_env_file() shobar AGE
-call korte hobe caller script e, exactly age jemon hoto):
+Env vars (proti script nijer .env theke load kore -- SUPABASE_URL /
+SUPABASE_SERVICE_ROLE_KEY ei module e LAZILY poRa hoy, mane proti API
+call-er shomoy fresh os.environ.get() kora hoy, import-er shomoy ekbar
+cache kore rakha hoy na. Tai caller script e `from supabase_client import
+...` r `load_env_file()` er order kono bhabei matter kore na -- age
+(module-level e) import kore rakhle-o, load_env_file() pore call korleo,
+pore je-kono actual Supabase call (supabase_get/supabase_patch/
+is_configured) shothik/current environment value-i dekhbe):
     SUPABASE_URL
     SUPABASE_SERVICE_ROLE_KEY   -- RLS bypass kore, tai eta SHUDHU
                                     server-side/backend e rakho
@@ -25,8 +30,26 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlencode
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+def _supabase_url() -> str | None:
+    """
+    Read SUPABASE_URL from the environment on every call (not cached at
+    import time). This matters because callers (push_relay.py,
+    stream_worker_stdin.py) import this module at the TOP of their file,
+    but only call their own load_env_file() later, inside main()/run_*().
+    If this value were read once at import time (the old behavior), it
+    would freeze at None whenever SUPABASE_URL only lives in a .env file
+    (not already exported in the shell) -- silently breaking standalone
+    runs of those scripts while working fine only when launched as a
+    main.py child process (which loads .env into its own environment
+    before spawning children, so children inherit it before their imports
+    run). Reading lazily here removes that footgun entirely.
+    """
+    return os.environ.get("SUPABASE_URL")
+
+
+def _supabase_key() -> str | None:
+    """See _supabase_url() -- same lazy-read reasoning applies here."""
+    return os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 # DB unreachable/misconfigured obostay koto second por por retry hobe --
 # ffmpeg-missing-binary er moto fixed interval (exponential na, karon eta
@@ -48,8 +71,8 @@ class SupabaseFetchError(Exception):
 
 
 def is_configured() -> bool:
-    """SUPABASE_URL r SUPABASE_SERVICE_ROLE_KEY dutoi set ache kina."""
-    return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+    """SUPABASE_URL r SUPABASE_SERVICE_ROLE_KEY dutoi (ekhon, live) set ache kina."""
+    return bool(_supabase_url() and _supabase_key())
 
 
 def supabase_get(path: str, params: dict) -> list:
@@ -61,13 +84,15 @@ def supabase_get(path: str, params: dict) -> list:
     worker reading its own assigned stream's data, not an end-user client.
     This key must never be exposed to a browser/client.
     """
+    base_url = _supabase_url()
+    api_key = _supabase_key()
     query = urlencode(params)
-    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{path}?{query}"
+    url = f"{base_url.rstrip('/')}/rest/v1/{path}?{query}"
     req = urllib.request.Request(
         url,
         headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": api_key,
+            "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
         },
     )
@@ -102,16 +127,18 @@ def supabase_patch(path: str, params: dict, body: dict, logger=None) -> None:
     """
     if not is_configured():
         return
+    base_url = _supabase_url()
+    api_key = _supabase_key()
     query = urlencode(params)
-    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{path}?{query}"
+    url = f"{base_url.rstrip('/')}/rest/v1/{path}?{query}"
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
         method="PATCH",
         headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": api_key,
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Prefer": "return=minimal",
         },
