@@ -39,9 +39,6 @@ Config (.env file theke, ba environment variable diye override):
     NMS_SCRIPT=node-media-server.js        # Node-Media-Server entry file naam
     NMS_STARTUP_WAIT=8                     # NMS port bind howar jonno max wait (safety-net, blind sleep na)
     WORKER_STARTUP_WAIT=5                  # worker "ready" howar jonno max wait (safety-net, blind sleep na)
-    WORKER_LOG=stream_01.log               # stream_worker_stdin.py er log file naam
-    PUSH_RELAY_LOG=push_relay.log          # push_relay er log file naam
-    RUN_ALL_LOG=run_all.log                # main.py nijer log file naam
     RTMP_URL=rtmp://localhost:1935/live/   # BASE URL (STREAM_NAME ar lagbe na -- STREAM_ID-i ekhon
                                             # push/pull path e boshe: base + '/' + STREAM_ID). Ei
                                             # variable theke shudhu host:port ber kora hoy (NMS
@@ -70,7 +67,7 @@ from urllib.parse import urlparse
 
 from logging_setup import setup_logging, set_stream_id
 
-logger = setup_logging("run_all")  # log_file/stream_id main() theke set hobe
+logger = setup_logging("run_all")  # stream_id main() theke set hobe
 
 _shutdown_requested = False
 
@@ -415,15 +412,10 @@ def main():
 
     load_env_file(str(here / ".env"))
 
-    # k8s e container filesystem shadharonoto ephemeral (Pod restart/
-    # reschedule hole log file harai jai), r console/stdout logging already
-    # ache (cluster-er log collector -- Fluent Bit/Loki/CloudWatch etc --
-    # shetai tule newar jonno designed). Tai file logging ekhon DEFAULT E
-    # OFF -- shudhu console/stdout e log hoy. File-e-o log rakhte chaile
-    # (e.g. local dev e) RUN_ALL_LOG / WORKER_LOG / PUSH_RELAY_LOG ke .env
-    # e explicitly ekta filename set koro (e.g. RUN_ALL_LOG=run_all.log).
-    run_all_log = os.environ.get("RUN_ALL_LOG", "")
-    setup_logging("run_all", log_file=run_all_log or None)
+    # Console/stdout-only logging -- a container's own log collector
+    # (Fluent Bit / Loki / CloudWatch etc, or `docker logs` locally) is
+    # expected to capture stdout instead of this process writing files.
+    setup_logging("run_all")
     set_stream_id("run_all", os.environ.get("STREAM_ID", "-"))
 
     nms_dir_rel = os.environ.get("NMS_DIR", ".")   # node-media-server.js jei subfolder e ache
@@ -440,11 +432,6 @@ def main():
 
     rtmp_url = os.environ.get("RTMP_URL", "rtmp://localhost:1935/live/")
     nms_host, nms_port = _parse_host_port(rtmp_url)
-
-    # (default e empty -- file logging off, console/stdout-only. Filename
-    # set korle file-e-o log jabe -- upore run_all_log er comment dekho)
-    worker_log = os.environ.get("WORKER_LOG", "")
-    push_relay_log = os.environ.get("PUSH_RELAY_LOG", "")
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
@@ -466,8 +453,7 @@ def main():
         # ashe. "-u" diye Python ke unbuffered stdout/stderr e force kora
         # hocche, jate readiness marker r shob log line sathe sathe (near
         # real-time) main.py porjonto pouchay.
-        build_cmd=lambda: [sys.executable, "-u", "stream_worker_stdin.py"]
-        + (["--log-file", worker_log] if worker_log else []),
+        build_cmd=lambda: [sys.executable, "-u", "stream_worker_stdin.py"],
         cwd=str(here),
         ready_pattern="Pushing:",  # first segment publish shuru howar log line
         restart_backoff_base=restart_backoff_base,
@@ -478,8 +464,7 @@ def main():
         # "-u" -- see WORKER comment above; same buffering issue applies
         # here (no ready_pattern for RELAY, but its regular log lines would
         # otherwise arrive in delayed chunks in the merged console output).
-        build_cmd=lambda: [sys.executable, "-u", "push_relay.py"]
-        + (["--log-file", push_relay_log] if push_relay_log else []),
+        build_cmd=lambda: [sys.executable, "-u", "push_relay.py"],
         cwd=str(here),
         restart_backoff_base=restart_backoff_base,
         restart_backoff_max=restart_backoff_max,

@@ -68,10 +68,8 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 #    manifest e containerPort + livenessProbe/readinessProbe eর shathe
 #    eta match korte hobe.
 #
-# 3) File logging (RUN_ALL_LOG / WORKER_LOG / PUSH_RELAY_LOG): default e
-#    OFF -- kichu set na korleo console/stdout-only logging hobe (k8s log
-#    collector shetai tule nebe). File-e-o log rakhte chaile (e.g. local
-#    dev e) explicitly filename set koro, e.g.: RUN_ALL_LOG=run_all.log
+# 3) Logging shudhu console/stdout e hoy (kono file logging nai) -- k8s
+#    log collector (Fluent Bit/Loki/CloudWatch etc) shetai tule nebe.
 #
 # 4) replicas: 1 rakho Deployment e -- eta horizontally scale kora jaবে
 #    na (ekta Pod = ekta stream pipeline).

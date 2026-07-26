@@ -5,16 +5,17 @@ logging_setup.py
 Centralized, production-grade logging configuration -- shared by
 main.py, stream_worker_stdin.py, push_relay.py.
 
+Console/stdout-only logging (no file logging / rotation) -- a container's
+own log collector (Fluent Bit / Loki / CloudWatch / etc, or `docker logs`
+locally) is expected to capture stdout instead.
+
 Features:
 - DEBUG env var toggle:
       DEBUG=true  -> DEBUG level (shob log dekhabe, verbose)
       DEBUG na thakle / false -> INFO level (shudhu dorkari log)
   LOG_LEVEL env var diye direct override o kora jay (e.g. LOG_LEVEL=WARNING),
   eta DEBUG flag er cheye priority pabe.
-- Size-based log rotation (RotatingFileHandler) -- tai log file kokhono
-  unbounded grow kore storage khaবে না. Default: 5MB/file, 5 backups
-  (max ~25MB per script) -- LOG_MAX_BYTES / LOG_BACKUP_COUNT diye override.
-- Console + rotating file handler, dutoi same level respect kore.
+- Console handler.
 - Extension hook (`attach_handler`) -- pore kono remote log-watch
   service (Loki, Datadog, custom HTTP log shipper, ELK, etc) add
   korte chaile, notun logging.Handler subclass banaiye ei function
@@ -23,22 +24,20 @@ Features:
 
 Usage (proti script e):
     from logging_setup import setup_logging
-    logger = setup_logging("stream_01", log_file="stream_01.log")
+    logger = setup_logging("stream_01")
     logger.info("kichu ekta message")
     logger.debug("shudhu DEBUG=true thakle dekhabe")
 
     # Multi-stream setup e (.env theke STREAM_ID/STREAM_NAME nile), proti
     # log line e automatic stream id bosbe -- alada kore prottek
     # logger.info(...) call e extra={} dite hobe na:
-    logger = setup_logging("stream_worker", log_file="worker.log", stream_id=os.environ.get("STREAM_NAME"))
+    logger = setup_logging("stream_worker", stream_id=os.environ.get("STREAM_NAME"))
     logger.error("ffmpeg crash hoyeche")
     # -> 2026-07-26 10:00:00 [ERROR] [stream_worker] [stream=stream_01] ffmpeg crash hoyeche
 
 Env vars:
     DEBUG=true|false          -- verbose logging on/off (default: false)
     LOG_LEVEL=DEBUG|INFO|...  -- explicit override, DEBUG flag ke beat kore
-    LOG_MAX_BYTES=5242880     -- proti log file koto bytes hole rotate hobe
-    LOG_BACKUP_COUNT=5        -- koyta rotated backup file rakha hobe
     STREAM_ID / STREAM_NAME   -- setup_logging() e stream_id explicitly na
                                  dile, ei env var gulo theke fallback kora hoy
 """
@@ -46,8 +45,6 @@ Env vars:
 import logging
 import os
 import sys
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
 from typing import Optional
 
 _LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(name)s] [stream=%(stream_id)s] %(message)s"
@@ -107,19 +104,12 @@ def _resolve_level() -> int:
     return logging.DEBUG if _str_to_bool(debug_flag) else logging.INFO
 
 
-def _resolve_rotation_config() -> tuple[int, int]:
-    max_bytes = int(os.environ.get("LOG_MAX_BYTES", 5 * 1024 * 1024))  # 5MB
-    backup_count = int(os.environ.get("LOG_BACKUP_COUNT", 5))
-    return max_bytes, backup_count
-
-
 def setup_logging(
     name: str,
-    log_file: Optional[str] = None,
     stream_id: Optional[str] = None,
 ) -> logging.Logger:
     """
-    Ekta named logger configure kore return kore.
+    Ekta named logger configure kore return kore (console/stdout-only).
 
     stream_id: proti log line e "[stream=...]" hisebe bosbe. Explicitly
         na dile, environment theke STREAM_ID -> STREAM_NAME fallback
@@ -129,7 +119,7 @@ def setup_logging(
     Root logger touch kora hoy na (propagate=False) -- tai main.py,
     push_relay.py, stream_worker_stdin.py ek shathe import/run hole
     ekjon onnojon er handler duplicate/conflict kore na, kintu shobar
-    level+rotation logic ei ekই jaygay theke ashe (DRY, consistent).
+    level logic ei ekই jaygay theke ashe (DRY, consistent).
 
     Already-configured logger (e.g. accidental double setup_logging
     call) hole existing handlers-e notun kore add kora hoy na --
@@ -161,20 +151,6 @@ def setup_logging(
     console_handler = logging.StreamHandler(_safe_console_stream())
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-
-    if log_file:
-        path = Path(log_file)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        max_bytes, backup_count = _resolve_rotation_config()
-        file_handler = RotatingFileHandler(
-            filename=str(path),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8",
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
 
     return logger
 

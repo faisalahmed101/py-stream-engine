@@ -31,13 +31,12 @@ Usage (.env file diye):
     #                              eta shudhu server-side/backend e rakho,
     #                              kokhono client/browser e na>
 
-    python3 stream_worker_stdin.py --log-file stream_01.log
+    python3 stream_worker_stdin.py
 
 Usage (CLI diye override, .env chara o):
     python3 stream_worker_stdin.py \
         --rtmp-url rtmp://localhost:1935/live/ \
-        --stream-id <uuid> \
-        --log-file stream_01.log
+        --stream-id <uuid>
 
 .env file er path change korte chaile --env-file flag use koro.
 
@@ -85,7 +84,7 @@ from supabase_client import (
     wait_for_supabase,
 )
 
-logger = setup_logging("stream_worker")  # log_file/stream_id are set from main()
+logger = setup_logging("stream_worker")  # stream_id is set from main()
 
 _IS_POSIX = os.name == "posix"
 if _IS_POSIX:
@@ -466,7 +465,7 @@ def get_segment_urls(m3u8_url: str) -> list[str]:
     return segments
 
 
-def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
+def build_ffmpeg_process(output_url: str, stream_id: str) -> subprocess.Popen:
     """
     Persistent ffmpeg process banay, jetar stdin diye raw mpegts bytes
     feed kora hobe. -c copy dile transcode lagbe na, shudhu remux+push.
@@ -474,6 +473,10 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     output_url: rtmp://...  -> SRS (ba onno RTMP media server) e sorasori
     push kore. Ei URL e ffmpeg nijei ekta client hisebe connect kore
     continuous data pathay -- kono "listen"/server mode nai.
+
+    stream_id: shudhu drain_stderr()-er log line e "[stream_id] ffmpeg
+    stderr: ..." hisebe bosano jonno -- multiple stream ekshathe chalale
+    kon stream-er ffmpeg stderr eta bojha jay.
     """
     cmd = [
         "ffmpeg",
@@ -500,7 +503,7 @@ def build_ffmpeg_process(output_url: str) -> subprocess.Popen:
     proc._started_at = time.time()  # used by run_stream() to decide backoff vs. reset
     proc._last_progress_bytes = -1
     proc._last_progress_at = time.time()  # grace period starts at spawn, not at the first progress line
-    t_err = threading.Thread(target=drain_stderr, args=(proc, "ffmpeg"), daemon=True)
+    t_err = threading.Thread(target=drain_stderr, args=(proc, stream_id), daemon=True)
     t_err.start()
     t_prog = threading.Thread(target=read_progress, args=(proc,), daemon=True)
     t_prog.start()
@@ -530,7 +533,7 @@ def _build_ffmpeg_or_wait(rtmp_url: str, stream_id: str) -> subprocess.Popen:
     """
     while not _shutdown_requested:
         try:
-            return build_ffmpeg_process(rtmp_url)
+            return build_ffmpeg_process(rtmp_url, stream_id)
         except FileNotFoundError:
             message = "ffmpeg binary not found (not installed, or not on PATH)."
             logger.error(
@@ -963,7 +966,6 @@ def main():
              "(base RTMP_URL + '/' + stream_id) banano r log identification-er jonno-o lagbe. "
              "Na dile .env/environment er STREAM_ID use hobe.",
     )
-    parser.add_argument("--log-file", default=None, help="Log file path (na dile stdout e log hobe)")
     args = parser.parse_args()
 
     # .env file age load kori, jate RTMP_URL/STREAM_ID/SUPABASE_URL/
@@ -986,7 +988,7 @@ def main():
     # module import-er AGE load_env_file() call na hole dhorbe na.
     load_env_file(args.env_file)
 
-    setup_logging("stream_worker", log_file=args.log_file)
+    setup_logging("stream_worker")
 
     stream_id = args.stream_id or os.environ.get("STREAM_ID")
     set_stream_id("stream_worker", stream_id or "-")

@@ -36,7 +36,7 @@ effective hoy, na hole next crash-restart-e (protyek destination thread nijer
 Supabase row abar poRe na -- shudhu top-level reload/restart e notun list ashe).
 
 Usage:
-    python3 push_relay.py --log-file push_relay.log
+    python3 push_relay.py
 
 .env e lagbe:
     RTMP_URL=rtmp://localhost:1935/live/   # BASE URL (trailing '/', kono stream key/naam chara) --
@@ -87,7 +87,7 @@ from supabase_client import (
     wait_for_supabase,
 )
 
-logger = setup_logging("push_relay")  # log_file/stream_id main() theke set hobe
+logger = setup_logging("push_relay")  # stream_id main() theke set hobe
 
 RESTART_DELAY = 5          # seconds -- base delay before the first retry after a crash
 RESTART_BACKOFF_MAX = 30   # seconds -- delay never grows past this, so recovery stays fast
@@ -687,10 +687,9 @@ def main():
         help="Env var naam jekhane local source RTMP URL thakbe (default: RTMP_URL -- stream_worker_stdin.py "
              "jekhane push kore, shei same URL eikhane source hisebe use hoy)",
     )
-    parser.add_argument("--log-file", default=None, help="Log file path (na dile stdout e log hobe)")
     args = parser.parse_args()
 
-    setup_logging("push_relay", log_file=args.log_file)
+    setup_logging("push_relay")
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
