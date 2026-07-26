@@ -405,9 +405,32 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
 
                 # .env is freshly re-read on every crash-restart, so an edited
                 # destination list takes effect immediately at this point.
+                #
+                # This re-read is wrapped in try/except (unlike a plain
+                # `destinations = load_destinations(dest_env)`) because a
+                # crash-restart happens automatically, unattended, possibly
+                # in the middle of the night a year from now -- if
+                # PUSH_DESTINATIONS happens to be transiently malformed at
+                # exactly this moment (e.g. a ConfigMap update caught
+                # mid-write, a stray edit), an uncaught ValueError here would
+                # propagate out of run_relay() and exit this whole Python
+                # process. main.py's supervisor would then just keep
+                # restarting a RELAY that immediately dies again on the same
+                # bad config -- pushing to YouTube/Facebook would silently
+                # stop (worker -> NMS keeps working fine, so nothing else
+                # would look "down") until someone manually fixes the config.
+                # Falling back to the last-known-good `destinations` list
+                # avoids that failure mode entirely, consistent with how the
+                # SIGHUP reload path above already behaves.
                 load_env_file(env_file)
                 set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
-                destinations = load_destinations(dest_env)
+                try:
+                    destinations = load_destinations(dest_env)
+                except ValueError as e:
+                    logger.error(
+                        "PUSH_DESTINATIONS is invalid after reload, keeping the previous "
+                        "destination list and retrying with it: %s", e,
+                    )
                 proc = _build_ffmpeg_or_wait(source_url, destinations)
                 if proc is None:
                     break  # shutdown requested while waiting for ffmpeg
@@ -439,9 +462,18 @@ def run_relay(env_file: str, source_env: str, dest_env: str) -> None:
                     logger.warning("Restarting ffmpeg in %.1fs after stall...", delay)
                     time.sleep(delay)
 
+                    # Shei same reasoning hisebe (upore crash-restart branch e
+                    # dekho) -- transient invalid PUSH_DESTINATIONS e process
+                    # crash na kore, purono list diyei retry kora hocche.
                     load_env_file(env_file)
                     set_stream_id("push_relay", os.environ.get("STREAM_ID", "-"))
-                    destinations = load_destinations(dest_env)
+                    try:
+                        destinations = load_destinations(dest_env)
+                    except ValueError as e:
+                        logger.error(
+                            "PUSH_DESTINATIONS is invalid after reload, keeping the previous "
+                            "destination list and retrying with it: %s", e,
+                        )
                     proc = _build_ffmpeg_or_wait(source_url, destinations)
                     if proc is None:
                         break
