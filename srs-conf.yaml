@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: srs-conf
+  namespace: default   # তোমার namespace অনুযায়ী বদলাও
+data:
+  srs.conf: |
+    listen              1935;
+    max_connections      100;
+    daemon               off;
+    srs_log_tank         console;
+
+    http_api {
+        enabled         on;
+        listen          1985;
+    }
+
+    vhost __defaultVhost__ {
+        gop_cache       on;
+        queue_length    10;
+    }
