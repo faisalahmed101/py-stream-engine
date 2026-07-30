@@ -2,55 +2,61 @@
 """
 main.py
 
-Node-Media-Server, stream_worker_stdin.py, r push_relay.py -- tin-ta
-alada terminal e chalanor poriborte, ekta single command diye ekshathe
-chalanor jonno launcher/supervisor script. Shob process child process
-hisebe start hoy, output prefix shoho (ekta terminal e-i) merge kore
-dekhano hoy, r Ctrl+C dile shob-i clean-e bondho hoye jay.
+stream_worker_stdin.py r push_relay.py -- duita alada terminal e chalanor
+poriborte, ekta single command diye ekshathe chalanor jonno launcher/
+supervisor script.
+
+NOTE: Node-Media-Server (NMS) ekhon r ei script manage kore na. RTMP
+server hisebe ekhon SRS (ossrs/srs) use kora hocche, jeta ALADA-vabe
+Docker-e chalano hoy (e.g. `docker run -d --name srs -p 1935:1935 -p
+1985:1985 -p 8080:8080 ossrs/srs:5`) -- ei script shudhu dhore neয় SRS
+already up ache (RTMP_URL-e), tai NMS start/poll kora shob code bad
+deওয়া hoyeche.
 
 Order:
-    1. Node-Media-Server start hoy (node node-media-server.js)
-    2. NMS-er RTMP port (RTMP_URL theke) bind hওয়া porjonto active
-       poll kora hoy (fixed sleep na -- 1-2 sec e ready hoye gele
-       shathe shathe egiye jay).
-    3. stream_worker_stdin.py start hoy (video source -> NMS e publish)
-    4. Worker-er log e "Push hocche:" (first segment publish shuru
+    0. SRS-er RTMP port (RTMP_URL theke) khola ache kina check kora hoy
+       (blocking -- SRS up na thakle proti SRS_CHECK_INTERVAL sec por por
+       retry kora hoy, jotokkhon na SRS up hoy ba Ctrl+C ashe).
+    1. stream_worker_stdin.py start hoy (video source -> SRS e publish,
+       RTMP_URL e already-running SRS dhore niye)
+    2. Worker-er log e "Push hocche:" (first segment publish shuru
        howar marker) dekha porjonto active wait kora hoy.
-    5. push_relay.py start hoy (NMS theke pull kore YouTube/Facebook e push)
+    3. push_relay.py start hoy (SRS theke pull kore YouTube/Facebook e push)
 
 Production-grade reliability:
-    - Proti child process (NMS / WORKER / RELAY) ke ALADA-ALADA vabe
-      supervise kora hoy. Jekono ekta process jekono karone (crash,
-      unhandled exception, kill -9, OOM) exit/theme gele, shudhu
-      shetake exponential backoff shoho automatic restart kora hoy --
-      baki process gulo unaffected thake (proti process nijer moddhe
-      already resilient: e.g. push_relay/stream_worker nijeder ffmpeg
-      subprocess crash nijera i handle kore, main.py shudhu porar
-      Python process nijei crash korle top-level e restart kore).
-    - Startup-eo guarantee deওয়া hoy -- kono step (NMS/WORKER/RELAY)
-      shuru hotei fail korle main.py exit kore na, backoff shoho retry
-      korte thake jotokkhon na successful hoy ba Ctrl+C আসে.
+    - Proti child process (WORKER / RELAY) ke ALADA-ALADA vabe supervise
+      kora hoy. Jekono ekta process jekono karone (crash, unhandled
+      exception, kill -9, OOM) exit/theme gele, shudhu shetake
+      exponential backoff shoho automatic restart kora hoy -- baki
+      process ta unaffected thake (proti process nijer moddhe already
+      resilient: e.g. push_relay/stream_worker nijeder ffmpeg subprocess
+      crash nijera i handle kore, main.py shudhu porar Python process
+      nijei crash korle top-level e restart kore).
+    - Startup-eo guarantee deওয়া hoy -- kono step (WORKER/RELAY) shuru
+      hotei fail korle main.py exit kore na, backoff shoho retry korte
+      thake jotokkhon na successful hoy ba Ctrl+C আসে.
 
 Usage:
     python3 main.py
 
+Prerequisite: SRS Docker container already running, e.g.:
+    docker run -d --name srs -p 1935:1935 -p 1985:1985 -p 8080:8080 \\
+        -p 8000:8000/udp -p 10080:10080/udp ossrs/srs:5
+
 Config (.env file theke, ba environment variable diye override):
-    NMS_DIR=node-media-server              # node-media-server.js jei subfolder e ache (relative, main.py er tulonay)
-    NMS_SCRIPT=node-media-server.js        # Node-Media-Server entry file naam
-    NMS_STARTUP_WAIT=8                     # NMS port bind howar jonno max wait (safety-net, blind sleep na)
     WORKER_STARTUP_WAIT=5                  # worker "ready" howar jonno max wait (safety-net, blind sleep na)
     RTMP_URL=rtmp://localhost:1935/live/   # BASE URL (STREAM_NAME ar lagbe na -- STREAM_ID-i ekhon
                                             # push/pull path e boshe: base + '/' + STREAM_ID). Ei
-                                            # variable theke shudhu host:port ber kora hoy (NMS
-                                            # readiness check-er jonno) -- path/stream-id ta matter
-                                            # kore na ei check-er jonno.
+                                            # URL-er host:port e SRS up ache kina, WORKER start korar
+                                            # age eka script nijei check kore neয়.
+    SRS_CHECK_TIMEOUT=1                    # SRS port-check-er proti attempt-er socket timeout (sec)
     STREAM_ID=<uuid>                       # proti log line e "[stream=...]" hisebe bosbe, r
                                             # worker/relay-er actual push/pull URL-er path/key-o eta-i
     DEBUG=false                            # true dile verbose (DEBUG level) log dekhabe
     RESTART_BACKOFF_BASE=2                 # process crash korle koto sec theke restart backoff shuru hobe
     RESTART_BACKOFF_MAX=60                 # backoff max koto second porjonto barbe
 
-Ctrl+C (SIGINT) dile shob process (NMS + worker + push_relay) gracefully terminate hobe.
+Ctrl+C (SIGINT) dile shob process (worker + push_relay) gracefully terminate hobe.
 """
 
 import json
@@ -134,32 +140,6 @@ def handle_signal(signum, frame):
     _shutdown_requested = True
 
 
-def wait_for_port(host: str, port: int, timeout: float, proc: subprocess.Popen = None, poll_interval: float = 0.2) -> bool:
-    """
-    Fixed sleep er poriborte, host:port e actual socket connect kore
-    dekhe -- port taratari (1-2 sec e o) bind hoye gele shathe shathe
-    True return kore, r na hole max `timeout` second porjonto try kore
-    (eta ekta upper-bound safety net, blind wait na).
-
-    `proc` deওয়া thakle, proti iteration e process beche ache kina
-    check kora hoy -- process nijei crash kore gele r baki shomoy
-    uselessly wait na kore shathe shathe False return kore, jate
-    caller taratari retry/restart korte pare.
-    """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if _shutdown_requested:
-            return False
-        if proc is not None and proc.poll() is not None:
-            return False
-        try:
-            with socket.create_connection((host, port), timeout=1):
-                return True
-        except OSError:
-            time.sleep(poll_interval)
-    return False
-
-
 def _parse_host_port(rtmp_url: str, default_port: int = 1935) -> tuple[str, int]:
     parsed = urlparse(rtmp_url)
     host = parsed.hostname or "localhost"
@@ -167,46 +147,65 @@ def _parse_host_port(rtmp_url: str, default_port: int = 1935) -> tuple[str, int]
     return host, port
 
 
+def _tcp_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+# ---------- SRS readiness check (SRS is external -- NOT a child process) ----------
+# Ei script SRS ke start/manage kore na (SRS ALADA-vabe, e.g. Docker-e,
+# chalano hoy) -- kintu WORKER/RELAY start korar AGE ekbar check kore neওয়া
+# hoy SRS-er RTMP port (RTMP_URL theke) actually khola ache kina. Na thakle
+# WORKER/RELAY start hoyeo shathe shathe connection-refused e crash-loop e
+# porto (SRS up howa porjonto), tai eikhaneই blocking-vabe wait kora hoy --
+# jate log-e ekbar-i porishkar bola hoy "SRS up na" (bar bar crash-restart
+# log spam er poriborte), r SRS up hওয়া matro shathe shathe egiye jai.
+SRS_CHECK_INTERVAL = 2.0    # seconds -- koto ghono ghono port check kora hobe
+SRS_CHECK_TIMEOUT = float(os.environ.get("SRS_CHECK_TIMEOUT", "1"))  # per-attempt socket timeout
+
+
+def wait_for_srs(host: str, port: int) -> bool:
+    """
+    SRS-er RTMP port khola howa porjonto (ba shutdown request ashar age
+    porjonto) blocking-vabe wait kore, proti SRS_CHECK_INTERVAL sec por por
+    retry kore. Returns False shudhu shutdown-er karone thamle.
+    """
+    logged_waiting = False
+    while not _shutdown_requested:
+        if _tcp_port_open(host, port, timeout=SRS_CHECK_TIMEOUT):
+            if logged_waiting:
+                logger.info(f"[run_all] SRS is up ({host}:{port}), proceeding.")
+            else:
+                logger.info(f"[run_all] SRS check passed ({host}:{port}).")
+            return True
+        if not logged_waiting:
+            logger.warning(
+                f"[run_all] SRS is not reachable at {host}:{port}. "
+                f"Make sure the SRS Docker container is running and its port is "
+                f"published (e.g. 'docker run -d --name srs -p 1935:1935 ... ossrs/srs:5'). "
+                f"Will keep checking every {SRS_CHECK_INTERVAL:.0f}s..."
+            )
+            logged_waiting = True
+        waited = 0.0
+        while waited < SRS_CHECK_INTERVAL and not _shutdown_requested:
+            time.sleep(0.2)
+            waited += 0.2
+    return False
+
+
 # ---------- Kubernetes health/readiness endpoints ----------
-# Ekta lightweight HTTP server (stdlib http.server -- kono extra pip/npm
-# dependency lagbe na, tai Docker image e kichu add korte hobe na) jate
-# k8s Pod-er liveness/readiness probe check korte pare. main.py e-i thake
-# (NMS/WORKER/RELAY er moto alada process na) karon eituku i "single
-# container" design e sob theke shohoj jayga -- ei ekta process i shob
-# child process ke track kore.
+# GET /healthz -> main.py (ei Python process) nijei live ache kina.
+# GET /readyz  -> WORKER + RELAY -- duita child process i live/running
+#                 kina check kore JSON e prottekta separate status shoho.
+#                 Kono ekta down thakle (restart/backoff cholche) 503 dey.
 #
-#   GET /healthz -> shudhu eituku bole je main.py (ei Python process) nijei
-#                   live ache (event loop hang/deadlock na hole always 200).
-#                   Eta livenessProbe e use koro:
-#
-#                       livenessProbe:
-#                         httpGet: {path: /healthz, port: 8081}
-#                         initialDelaySeconds: 15
-#                         periodSeconds: 10
-#
-#   GET /readyz  -> NMS + WORKER + RELAY -- tinta child process i live/
-#                   running kina check kore JSON e prottekta separate
-#                   status shoho. Kono ekta down thakle (restart/backoff
-#                   cholche) 503 dey. Eta readinessProbe e use koro:
-#
-#                       readinessProbe:
-#                         httpGet: {path: /readyz, port: 8081}
-#                         initialDelaySeconds: 15
-#                         periodSeconds: 5
-#                         failureThreshold: 3
-#
-# NOTE (important, Deployment manifest e mathay rekho):
-#   - Eta horizontally scale kora jaবে na -- ekta Pod = ekta stream
-#     pipeline (ekta ffmpeg push). Deployment e `replicas: 1` rakho,
-#     naile duita Pod same RTMP destination e duibar push korbe.
-#   - RESTART_BACKOFF_MAX (default 60s) porjonto delay lagte pare kono
-#     child process restart korte, r SIGTERM ashar por ffmpeg/node ke
-#     clean-e bondho hote (5-10s) shomoy lage. Tai Pod spec e
-#     `terminationGracePeriodSeconds: 30` (ba beshi) rakho, noile
-#     graceful shutdown shesh howar age SIGKILL chole ashte pare.
-#   - HEALTH_PORT env var diye port change kora jay (default 8081) --
-#     Deployment/Service e containerPort/probe port eর shathe match
-#     korte hobe.
+# NOTE: SRS (RTMP server) ekhon ei process-er child na (alada Docker
+# container e chole), tai /readyz e SRS-er kono status thake na -- shudhu
+# WORKER/RELAY. SRS nijer container-er health/liveness Docker/K8s-e
+# alada-vabe check korte hobe.
 HEALTH_PORT = int(os.environ.get("HEALTH_PORT", "8081"))
 
 
@@ -247,11 +246,11 @@ def _start_health_server(processes: dict) -> None:
 
 class ManagedProcess:
     """
-    Ekta child process (NMS / WORKER / RELAY) ke supervise kore --
-    crash/unexpected-exit hole automatic restart kore (exponential
-    backoff shoho), jate stream kono karone hothat theme gele manual
-    intervention chara nijei abar cholte shuru kore -- eituku i ei
-    supervisor-er "production grade reliability" guarantee.
+    Ekta child process (WORKER / RELAY) ke supervise kore -- crash/
+    unexpected-exit hole automatic restart kore (exponential backoff
+    shoho), jate stream kono karone hothat theme gele manual intervention
+    chara nijei abar cholte shuru kore -- eituku i ei supervisor-er
+    "production grade reliability" guarantee.
     """
 
     def __init__(
@@ -282,7 +281,6 @@ class ManagedProcess:
         # PYTHONUNBUFFERED=1 -- belt-and-suspenders alongside the "-u" flag
         # on the WORKER/RELAY build_cmd (see those comments): guarantees
         # unbuffered stdout even if a future build_cmd change forgets "-u".
-        # Harmless/no-op for NMS (node), since node doesn't read this var.
         child_env = {**os.environ, "PYTHONUNBUFFERED": "1"}
         try:
             self.proc = subprocess.Popen(
@@ -293,14 +291,14 @@ class ManagedProcess:
                 env=child_env,
             )
         except OSError as e:
-            # e.g. FileNotFoundError -- the command binary (like "node")
-            # isn't installed/on PATH, or `cwd` doesn't exist. Without this
-            # catch, this exception would propagate all the way out of
-            # main() and crash the whole launcher -- and nothing supervises
-            # main.py itself, so that would be a hard stop, not just a
-            # restart. Instead we log clearly and leave self.proc as None,
-            # so is_alive() reports False and the normal backoff/retry loop
-            # in main() handles it the same as any other startup failure.
+            # e.g. FileNotFoundError -- the command binary isn't installed/
+            # on PATH, or `cwd` doesn't exist. Without this catch, this
+            # exception would propagate all the way out of main() and crash
+            # the whole launcher -- and nothing supervises main.py itself,
+            # so that would be a hard stop, not just a restart. Instead we
+            # log clearly and leave self.proc as None, so is_alive() reports
+            # False and the normal backoff/retry loop in main() handles it
+            # the same as any other startup failure.
             logger.error(f"[{self.name}] Failed to start '{' '.join(cmd)}': {e}")
             self.proc = None
             return
@@ -418,31 +416,27 @@ def main():
     setup_logging("run_all")
     set_stream_id("run_all", os.environ.get("STREAM_ID", "-"))
 
-    nms_dir_rel = os.environ.get("NMS_DIR", ".")   # node-media-server.js jei subfolder e ache
-    nms_script = os.environ.get("NMS_SCRIPT", "node-media-server.js")
-    nms_dir = (here / nms_dir_rel).resolve()
-
-    # Eta ekhon blind sleep na, upper-bound safety net -- actual wait
-    # onek kom shomoy-eo (1-2 sec) shesh hote pare.
-    nms_ready_timeout = float(os.environ.get("NMS_STARTUP_WAIT", "8"))
     worker_ready_timeout = float(os.environ.get("WORKER_STARTUP_WAIT", "5"))
 
     restart_backoff_base = float(os.environ.get("RESTART_BACKOFF_BASE", "2"))
     restart_backoff_max = float(os.environ.get("RESTART_BACKOFF_MAX", "60"))
 
+    # RTMP_URL ekhon worker/relay nijeder push/pull URL banate use hoy, AR
+    # eikhaneo (SRS readiness check-er jonno) shudhu host:port ber kora hoy --
+    # path/stream-id ta matter kore na ei check-er jonno.
     rtmp_url = os.environ.get("RTMP_URL", "rtmp://localhost:1935/live/")
-    nms_host, nms_port = _parse_host_port(rtmp_url)
+    srs_host, srs_port = _parse_host_port(rtmp_url)
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    nms = ManagedProcess(
-        "NMS",
-        build_cmd=lambda: ["node", nms_script],
-        cwd=str(nms_dir),
-        restart_backoff_base=restart_backoff_base,
-        restart_backoff_max=restart_backoff_max,
-    )
+    # WORKER start korar age SRS up ache kina check kore neওয়া hoy (blocking,
+    # SIGINT/SIGTERM e break-out kore) -- dekho wait_for_srs()-er comment.
+    logger.info(f"[run_all] Checking SRS at {srs_host}:{srs_port} before starting WORKER...")
+    if not wait_for_srs(srs_host, srs_port):
+        logger.info("[run_all] Shutdown requested before SRS became reachable, exiting.")
+        return
+
     worker = ManagedProcess(
         "WORKER",
         # "-u": stdout ekhon subprocess.PIPE e redirect hocche (TTY na), tai
@@ -470,28 +464,14 @@ def main():
         restart_backoff_max=restart_backoff_max,
     )
 
-    order = ["NMS", "WORKER", "RELAY"]
-    processes = {"NMS": nms, "WORKER": worker, "RELAY": relay}
+    order = ["WORKER", "RELAY"]
+    processes = {"WORKER": worker, "RELAY": relay}
 
     # Health server ke shob-er age start kori (proti child process start
     # howar age-i) -- tai k8s startupProbe/livenessProbe /healthz e 200
     # pabe process start howar shathe shathei, r /readyz thakbe 503 jotokkhon
-    # na shob child process actually up hoy (accurate readiness signal).
+    # na WORKER+RELAY duitai actually up hoy (accurate readiness signal).
     _start_health_server(processes)
-
-    def start_and_wait_nms() -> bool:
-        nms.start()
-        if not nms.is_alive():
-            return False
-        logger.info(f"[run_all] Waiting for NMS port {nms_host}:{nms_port} to bind (max {nms_ready_timeout}s)...")
-        ready = wait_for_port(nms_host, nms_port, nms_ready_timeout, proc=nms.proc)
-        if not nms.is_alive():
-            return False
-        if ready:
-            logger.info("[run_all] NMS port ready, proceeding.")
-        else:
-            logger.warning(f"[run_all] NMS port not ready after {nms_ready_timeout}s, process is still alive -- proceeding anyway (fallback).")
-        return True
 
     def start_and_wait_worker() -> bool:
         worker.start()
@@ -502,7 +482,7 @@ def main():
         relay.start()
         return relay.is_alive()
 
-    starters = {"NMS": start_and_wait_nms, "WORKER": start_and_wait_worker, "RELAY": start_and_wait_relay}
+    starters = {"WORKER": start_and_wait_worker, "RELAY": start_and_wait_relay}
 
     # ---------- Guaranteed startup ----------
     # Proti step retry hote thake jotokkhon na successful hoy (ba Ctrl+C
