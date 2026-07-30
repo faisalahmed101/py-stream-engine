@@ -15,6 +15,7 @@ COPY main.py .
 COPY stream_worker_stdin.py .
 COPY push_relay.py .
 COPY logging_setup.py .
+COPY supabase_client.py .
 
 # HEALTH_PORT default -- main.py serves /healthz, /readyz here
 EXPOSE 8081
